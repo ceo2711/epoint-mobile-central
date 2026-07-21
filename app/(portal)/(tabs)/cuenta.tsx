@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 
+import { AvatarEditorCard } from "@/features/auth/AvatarEditorCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -71,6 +72,8 @@ export default function PortalCuentaScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Cuenta</Text>
+
+        <AvatarEditorCard />
 
         <Card title="Perfil">
           <Text style={styles.name}>

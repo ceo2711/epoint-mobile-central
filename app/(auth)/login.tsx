@@ -86,7 +86,7 @@ export default function LoginScreen() {
               />
             </View>
             <Text style={styles.title}>Bienvenido</Text>
-            <Text style={styles.subtitle}>Ingresá con tu cuenta</Text>
+            <Text style={styles.subtitle}>Ingresá a Epoint Central</Text>
 
             <Text style={styles.label}>Email</Text>
             <TextInput

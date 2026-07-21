@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import { AvatarEditorCard } from "@/features/auth/AvatarEditorCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -129,6 +130,8 @@ export default function CuentaScreen() {
     >
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Mi cuenta</Text>
+
+        <AvatarEditorCard />
 
         <Card title="Perfil">
           {isAdmin ? (
