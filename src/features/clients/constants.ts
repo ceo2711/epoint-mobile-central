@@ -7,6 +7,7 @@ export const CLIENT_SOURCE_VALUES = [
   "INSTAGRAM",
   "REFERRAL",
   "PHONE_CALL",
+  "INFLUENCERS",
   "OTHER",
 ] as const;
 
@@ -19,6 +20,7 @@ export const CLIENT_SOURCE_LABELS: Record<ClientSourceValue, string> = {
   INSTAGRAM: "Instagram",
   REFERRAL: "Referido",
   PHONE_CALL: "Llamada",
+  INFLUENCERS: "Influencers",
   OTHER: "Otro",
 };
 
