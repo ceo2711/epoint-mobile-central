@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 
+import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ScreenState } from "@/components/ui/ScreenState";
@@ -254,10 +255,20 @@ export default function PortalDatosScreen() {
         </Section>
 
         <Section title="Domicilio actual">
-          <Input
+          <AddressAutocomplete
             label="Calle"
             value={addr.street}
             onChangeText={(v) => setAddr({ ...addr, street: v })}
+            onSelect={(resolved) =>
+              setAddr((prev) => ({
+                ...prev,
+                street: resolved.street,
+                city: resolved.city || prev.city,
+                state: resolved.state || prev.state,
+                zip_code: resolved.zip_code || prev.zip_code,
+              }))
+            }
+            placeholder="123 Main St"
             error={fieldErrors.street}
           />
           <Input

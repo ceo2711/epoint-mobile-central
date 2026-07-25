@@ -9,7 +9,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   APROBADO_PARA_ONBOARDING: { bg: colors.brandLight, text: colors.brand },
   EN_CARGA_DATOS: { bg: "#dbeafe", text: "#1e40af" },
   DOCUMENTOS_EN_REVISION: { bg: "#dbeafe", text: "#1e40af" },
-  LISTO_PARA_TABLERO: { bg: colors.brandLight, text: colors.brand },
+  LISTO_PARA_TRABAJAR: { bg: colors.brandLight, text: colors.brand },
   ONBOARDING_EN_PROGRESO: { bg: "#dbeafe", text: "#1e40af" },
   ONBOARDING_COMPLETADO: { bg: colors.brandLight, text: colors.brand },
   INACTIVO: { bg: colors.creamWarm, text: colors.soft },

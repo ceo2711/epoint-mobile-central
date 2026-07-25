@@ -488,7 +488,7 @@ export const CLIENT_STATUS_LABELS: Record<string, string> = {
   APROBADO_PARA_ONBOARDING: "Aprobado",
   EN_CARGA_DATOS: "En carga de datos",
   DOCUMENTOS_EN_REVISION: "Documentos en revisión",
-  LISTO_PARA_TABLERO: "Listo para tablero",
+  LISTO_PARA_TRABAJAR: "Listo para trabajar",
   ONBOARDING_EN_PROGRESO: "Onboarding en progreso",
   ONBOARDING_COMPLETADO: "Completado",
   INACTIVO: "Inactivo",
