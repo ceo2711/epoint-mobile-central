@@ -5,6 +5,7 @@ import {
   Easing,
   Image,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,7 +19,14 @@ import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { runOnJS } from "react-native-reanimated";
 
+import { UserAvatar } from "@/components/ui/UserAvatar";
+import {
+  BackGestureProvider,
+  useBackGestureController,
+} from "@/components/shell/BackGestureContext";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { FloatingChatWidget } from "@/features/chat/components/FloatingChatWidget";
 import { getAccessibleNavItems, type NavItem } from "@/lib/appNavigation";
 import { colors, radii } from "@/theme/tokens";
 
@@ -78,7 +86,7 @@ function pathMatchesHref(pathname: string, href: string): boolean {
   return pathMatchesNavItem(pathname, {
     href,
     webHref: href,
-    label: "",
+    labelKey: "",
     icon: "",
   });
 }
@@ -93,10 +101,22 @@ function isOnAccountScreen(pathname: string, accountHref: string): boolean {
 }
 
 export function AppShell({ children, accountHref, homeHref }: AppShellProps) {
+  return (
+    <BackGestureProvider>
+      <AppShellInner accountHref={accountHref} homeHref={homeHref}>
+        {children}
+      </AppShellInner>
+    </BackGestureProvider>
+  );
+}
+
+function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
   const { user, hasPermission } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const { isBackGestureSuppressed } = useBackGestureController();
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(DRAWER_HIDDEN_X)).current;
@@ -168,32 +188,45 @@ export function AppShell({ children, accountHref, homeHref }: AppShellProps) {
     router.replace(href as never);
   }
 
+  const canPopStack = router.canGoBack();
+  // iOS: gesto nativo interactivo del Stack. Android: borde custom → router.back().
+  // Si hay Kanban (u otra vista con scroll horizontal), silenciamos ambos.
+  const useNativePopGesture =
+    canPopStack && Platform.OS === "ios" && !isBackGestureSuppressed;
+  const customBackEnabled =
+    !isHomePath(pathname, homeHref) &&
+    !useNativePopGesture &&
+    !isBackGestureSuppressed;
+
   const onBack = useCallback(() => {
     if (isHomePath(pathname, homeHref)) return;
 
-    // Vistas raíz del menú (Cuenta, Datos, Documentos, etc.) → Inicio
+    // Preferir pop del stack: conserva la vista anterior (p. ej. Tablero → Cuenta → atrás)
+    // y anima el slide sin remount/recarga.
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    // Sin historial (navegación por menú con replace): raíz del menú → Inicio
     if (isOnRootNavScreen(pathname, navItems, homeHref)) {
       router.replace(homeHref as never);
       return;
     }
 
-    // Subvistas → pantalla anterior
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace(homeHref as never);
-    }
+    router.replace(homeHref as never);
   }, [router, pathname, navItems, homeHref]);
 
   function onUser() {
     if (onAccountScreen) return;
+    // push (no replace) para poder volver con gesto/animación a la vista previa
     router.push(accountHref as never);
   }
 
   const backGesture = useMemo(
     () =>
       Gesture.Pan()
-        .enabled(!isHomePath(pathname, homeHref))
+        .enabled(customBackEnabled)
         .activeOffsetX(18)
         .failOffsetY([-24, 24])
         .onEnd((event) => {
@@ -203,7 +236,7 @@ export function AppShell({ children, accountHref, homeHref }: AppShellProps) {
             runOnJS(onBack)();
           }
         }),
-    [onBack, pathname, homeHref],
+    [onBack, customBackEnabled],
   );
 
   const displayName = user
@@ -215,7 +248,7 @@ export function AppShell({ children, accountHref, homeHref }: AppShellProps) {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel="Abrir menú"
+          accessibilityLabel={t("common.openMenu")}
           onPress={() => setMenuOpen(true)}
           style={styles.headerBtn}
         >
@@ -234,11 +267,16 @@ export function AppShell({ children, accountHref, homeHref }: AppShellProps) {
 
         <TouchableOpacity
           accessibilityRole="button"
-          accessibilityLabel="Usuario"
+          accessibilityLabel={t("common.user")}
           onPress={onUser}
           style={styles.headerBtn}
         >
-          <Ionicons name="person-circle-outline" size={26} color={colors.cream} />
+          <UserAvatar
+            firstName={user?.first_name}
+            lastName={user?.last_name}
+            avatarUrl={user?.avatar_url}
+            size={36}
+          />
         </TouchableOpacity>
       </View>
 
@@ -247,10 +285,13 @@ export function AppShell({ children, accountHref, homeHref }: AppShellProps) {
         <GestureDetector gesture={backGesture}>
           <View
             style={styles.backEdge}
-            accessibilityLabel="Deslizá a la derecha para volver"
+            pointerEvents={customBackEnabled ? "auto" : "none"}
+            accessibilityLabel={t("common.swipeBack")}
           />
         </GestureDetector>
       </View>
+
+      {user?.role.code === "CLIENT" ? <FloatingChatWidget /> : null}
 
       <Modal
         visible={modalVisible}
@@ -310,7 +351,7 @@ export function AppShell({ children, accountHref, homeHref }: AppShellProps) {
                       color={active ? colors.brand : colors.brown}
                     />
                     <Text style={[styles.menuLabel, active && styles.menuLabelActive]}>
-                      {item.label}
+                      {t(item.labelKey)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -405,6 +446,7 @@ const styles = StyleSheet.create({
   },
   drawerUser: {
     fontSize: 13,
+    fontWeight: "700",
     color: colors.ink,
   },
   drawerRole: {

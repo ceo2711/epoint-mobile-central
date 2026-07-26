@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { Section } from "@/components/ui/Section";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { Client } from "@/types/api";
@@ -38,6 +39,7 @@ function currentYear() {
 
 export default function PortalDatosScreen() {
   const { token, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -96,11 +98,11 @@ export default function PortalDatosScreen() {
       if (v) setVehicle({ model: v.model, year: String(v.year), color: v.color });
       await loadStoredSsn(c.has_ssn);
     } catch (err) {
-      setError(getUserFacingErrorMessage(err, "No se pudieron cargar tus datos"));
+      setError(getUserFacingErrorMessage(err, t("portalData.loadError")));
     } finally {
       setLoading(false);
     }
-  }, [token, loadStoredSsn]);
+  }, [token, loadStoredSsn, t]);
 
   useEffect(() => {
     if (!authLoading && token) {
@@ -112,42 +114,42 @@ export default function PortalDatosScreen() {
     const next: Record<string, string> = {};
     const ssnDigits = ssn.trim().replace(/\D/g, "");
     if (ssn.trim() && ssnDigits.length !== 9) {
-      next.ssn = "El SSN debe tener 9 dígitos";
+      next.ssn = t("portalData.ssnInvalid");
     }
     if (dob.trim() && Number.isNaN(Date.parse(dob))) {
-      next.dob = "Fecha de nacimiento inválida (YYYY-MM-DD)";
+      next.dob = t("portalData.dobInvalid");
     }
     const month = parseOptionalInt(addr.residence_since_month);
     if (
       addr.residence_since_month.trim() &&
       (Number.isNaN(month) || month === null || month < 1 || month > 12)
     ) {
-      next.month = "Mes inválido (1-12)";
+      next.month = t("portalData.monthInvalid");
     }
     const year = parseOptionalInt(addr.residence_since_year);
     if (
       addr.residence_since_year.trim() &&
       (Number.isNaN(year) || year === null || year < 1900 || year > 2100)
     ) {
-      next.year = "Año inválido";
+      next.year = t("portalData.yearInvalid");
     }
-    if (!addr.street.trim()) next.street = "Requerido";
-    if (!addr.city.trim()) next.city = "Requerido";
-    if (!addr.state.trim()) next.state = "Requerido";
-    if (!addr.zip_code.trim()) next.zip = "Requerido";
-    if (!vehicle.model.trim()) next.model = "Requerido";
-    if (!vehicle.color.trim()) next.color = "Requerido";
+    if (!addr.street.trim()) next.street = t("common.required");
+    if (!addr.city.trim()) next.city = t("common.required");
+    if (!addr.state.trim()) next.state = t("common.required");
+    if (!addr.zip_code.trim()) next.zip = t("common.required");
+    if (!vehicle.model.trim()) next.model = t("common.required");
+    if (!vehicle.color.trim()) next.color = t("common.required");
     const vehicleYear = parseRequiredInt(vehicle.year);
     const maxYear = currentYear();
     if (!vehicle.year.trim()) {
-      next.vehicleYear = "Requerido";
+      next.vehicleYear = t("common.required");
     } else if (
       Number.isNaN(vehicleYear) ||
       vehicleYear === null ||
       vehicleYear < 1900 ||
       vehicleYear > maxYear
     ) {
-      next.vehicleYear = `Año inválido (1900-${maxYear})`;
+      next.vehicleYear = t("portalData.vehicleYearInvalid", { year: maxYear });
     }
     setFieldErrors(next);
     return Object.keys(next).length === 0;
@@ -198,16 +200,16 @@ export default function PortalDatosScreen() {
       setClient(updated);
       setSsn("");
       await loadStoredSsn(updated.has_ssn);
-      setMessage("Datos guardados correctamente");
+      setMessage(t("portalData.dataSaved"));
     } catch (err) {
-      setError(getUserFacingErrorMessage(err, "No se pudieron guardar los datos"));
+      setError(getUserFacingErrorMessage(err, t("portalData.saveError")));
     } finally {
       setSaving(false);
     }
   }
 
   if (authLoading || loading) {
-    return <ScreenState loading message="Cargando tus datos…" />;
+    return <ScreenState loading message={t("portalData.loading")} />;
   }
 
   return (
@@ -220,33 +222,33 @@ export default function PortalDatosScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Mis datos</Text>
-        <Text style={styles.subtitle}>
-          Completá tu información personal, domicilio y vehículo principal.
-        </Text>
+        <Text style={styles.title}>{t("portalData.title")}</Text>
+        <Text style={styles.subtitle}>{t("portalData.subtitle")}</Text>
 
         {message ? <Text style={styles.success}>{message}</Text> : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Section title="Datos básicos">
+        <Section title={t("portalData.basicData")}>
           {client?.has_ssn ? (
             <View style={styles.ssnBox}>
-              <Text style={styles.ssnLabel}>SSN en archivo</Text>
+              <Text style={styles.ssnLabel}>{t("portalData.ssnOnFile")}</Text>
               <Text style={styles.ssnValue}>{storedSsn ?? "•••••••••"}</Text>
-              <Text style={styles.hint}>Dejá el campo vacío para mantener el actual.</Text>
+              <Text style={styles.hint}>{t("portalData.ssnHint")}</Text>
             </View>
           ) : null}
           <Input
-            label="SSN"
+            label={t("portalData.ssn")}
             value={ssn}
             onChangeText={setSsn}
-            placeholder={client?.has_ssn ? "Actualizar SSN" : "123-45-6789"}
+            placeholder={
+              client?.has_ssn ? t("portalData.ssnUpdatePlaceholder") : "123-45-6789"
+            }
             keyboardType="number-pad"
             secureTextEntry
             error={fieldErrors.ssn}
           />
           <Input
-            label="Fecha de nacimiento"
+            label={t("portalData.dateOfBirth")}
             value={dob}
             onChangeText={setDob}
             placeholder="YYYY-MM-DD"
@@ -254,9 +256,9 @@ export default function PortalDatosScreen() {
           />
         </Section>
 
-        <Section title="Domicilio actual">
+        <Section title={t("portalData.currentAddress")}>
           <AddressAutocomplete
-            label="Calle"
+            label={t("portalData.street")}
             value={addr.street}
             onChangeText={(v) => setAddr({ ...addr, street: v })}
             onSelect={(resolved) =>
@@ -272,33 +274,33 @@ export default function PortalDatosScreen() {
             error={fieldErrors.street}
           />
           <Input
-            label="Ciudad"
+            label={t("portalData.city")}
             value={addr.city}
             onChangeText={(v) => setAddr({ ...addr, city: v })}
             error={fieldErrors.city}
           />
           <Input
-            label="Estado"
+            label={t("portalData.state")}
             value={addr.state}
             onChangeText={(v) => setAddr({ ...addr, state: v })}
             error={fieldErrors.state}
           />
           <Input
-            label="Código postal"
+            label={t("portalData.zip")}
             value={addr.zip_code}
             onChangeText={(v) => setAddr({ ...addr, zip_code: v })}
             keyboardType="number-pad"
             error={fieldErrors.zip}
           />
           <Input
-            label="Mes desde (1-12)"
+            label={t("portalData.monthSince")}
             value={addr.residence_since_month}
             onChangeText={(v) => setAddr({ ...addr, residence_since_month: v })}
             keyboardType="number-pad"
             error={fieldErrors.month}
           />
           <Input
-            label="Año desde"
+            label={t("portalData.yearSince")}
             value={addr.residence_since_year}
             onChangeText={(v) => setAddr({ ...addr, residence_since_year: v })}
             keyboardType="number-pad"
@@ -306,22 +308,22 @@ export default function PortalDatosScreen() {
           />
         </Section>
 
-        <Section title="Vehículo principal">
+        <Section title={t("portalData.mainVehicle")}>
           <Input
-            label="Modelo"
+            label={t("portalData.model")}
             value={vehicle.model}
             onChangeText={(v) => setVehicle({ ...vehicle, model: v })}
             error={fieldErrors.model}
           />
           <Input
-            label="Año"
+            label={t("portalData.year")}
             value={vehicle.year}
             onChangeText={(v) => setVehicle({ ...vehicle, year: v })}
             keyboardType="number-pad"
             error={fieldErrors.vehicleYear}
           />
           <Input
-            label="Color"
+            label={t("portalData.color")}
             value={vehicle.color}
             onChangeText={(v) => setVehicle({ ...vehicle, color: v })}
             error={fieldErrors.color}
@@ -329,7 +331,7 @@ export default function PortalDatosScreen() {
         </Section>
 
         <Button
-          title={saving ? "Guardando…" : "Guardar datos"}
+          title={saving ? t("common.saving") : t("portalData.saveData")}
           loading={saving}
           fullWidth
           onPress={onSave}
@@ -348,7 +350,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     gap: 18,
-    paddingBottom: 48,
+    // Deja libre la zona del botón flotante del chat.
+    paddingBottom: 130,
   },
   title: {
     fontSize: 28,

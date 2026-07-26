@@ -46,7 +46,8 @@
           "photosPermission": "Epoint necesita acceso a tu galería para subir documentos.",
           "cameraPermission": "Epoint necesita acceso a la cámara para fotografiar documentos."
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

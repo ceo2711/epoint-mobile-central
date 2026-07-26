@@ -14,6 +14,7 @@ import { AvatarEditorCard } from "@/features/auth/AvatarEditorCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { User } from "@/types/api";
@@ -21,6 +22,7 @@ import { colors, radii } from "@/theme/tokens";
 
 export default function CuentaScreen() {
   const { user, token, logout, refreshUser } = useAuth();
+  const { t } = useTranslation();
   const isAdmin = user?.role.code === "ADMIN";
 
   const [firstName, setFirstName] = useState(user?.first_name ?? "");
@@ -62,9 +64,9 @@ export default function CuentaScreen() {
         token,
       );
       await refreshUser();
-      setProfileOk("Perfil actualizado");
+      setProfileOk(t("account.profileSaved"));
     } catch (err) {
-      setProfileError(getUserFacingErrorMessage(err, "No se pudo guardar el perfil"));
+      setProfileError(getUserFacingErrorMessage(err, t("account.profileError")));
     } finally {
       setSavingProfile(false);
     }
@@ -75,11 +77,11 @@ export default function CuentaScreen() {
     setPasswordError(null);
     setPasswordOk(null);
     if (newPassword !== confirmPassword) {
-      setPasswordError("Las contraseñas no coinciden");
+      setPasswordError(t("changePassword.mismatch"));
       return;
     }
     if (newPassword.length < 8) {
-      setPasswordError("La nueva contraseña debe tener al menos 8 caracteres");
+      setPasswordError(t("changePassword.minLength"));
       return;
     }
     setSavingPassword(true);
@@ -95,10 +97,10 @@ export default function CuentaScreen() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setPasswordOk("Contraseña actualizada");
+      setPasswordOk(t("account.passwordUpdated"));
     } catch (err) {
       setPasswordError(
-        getUserFacingErrorMessage(err, "No se pudo cambiar la contraseña"),
+        getUserFacingErrorMessage(err, t("account.passwordError")),
       );
     } finally {
       setSavingPassword(false);
@@ -113,8 +115,8 @@ export default function CuentaScreen() {
       await refreshUser();
     } catch (err) {
       Alert.alert(
-        "Error",
-        getUserFacingErrorMessage(err, "No se pudo cambiar el comercio"),
+        t("common.error"),
+        getUserFacingErrorMessage(err, t("account.merchantSwitchError")),
       );
     } finally {
       setSwitchingMerchant(false);
@@ -129,38 +131,42 @@ export default function CuentaScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Mi cuenta</Text>
+        <Text style={styles.title}>{t("account.title")}</Text>
 
         <AvatarEditorCard />
 
-        <Card title="Perfil">
+        <Card title={t("account.profileTitle")}>
           {isAdmin ? (
             <View style={styles.form}>
               <Input
-                label="Nombre"
+                label={t("common.firstName")}
                 value={firstName}
                 onChangeText={setFirstName}
                 autoCapitalize="words"
               />
               <Input
-                label="Apellido"
+                label={t("common.lastName")}
                 value={lastName}
                 onChangeText={setLastName}
                 autoCapitalize="words"
               />
               <Input
-                label="Email"
+                label={t("common.email")}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
-              <Text style={styles.meta}>Teléfono: {user?.phone || "—"}</Text>
-              <Text style={styles.meta}>Rol: {user?.role.name}</Text>
+              <Text style={styles.meta}>
+                {t("common.phone")}: {user?.phone || t("common.dash")}
+              </Text>
+              <Text style={styles.meta}>
+                {t("common.role")}: {user?.role.name}
+              </Text>
               {profileError ? <Text style={styles.error}>{profileError}</Text> : null}
               {profileOk ? <Text style={styles.ok}>{profileOk}</Text> : null}
               <Button
-                title="Guardar perfil"
+                title={t("account.profileSave")}
                 fullWidth
                 loading={savingProfile}
                 onPress={() => void saveProfile()}
@@ -172,11 +178,13 @@ export default function CuentaScreen() {
                 {user?.first_name} {user?.last_name}
               </Text>
               <Text style={styles.meta}>{user?.email}</Text>
-              <Text style={styles.meta}>Teléfono: {user?.phone || "—"}</Text>
+              <Text style={styles.meta}>
+                {t("common.phone")}: {user?.phone || t("common.dash")}
+              </Text>
               <Text style={styles.meta}>{user?.role.name}</Text>
               {user?.active_merchant ? (
                 <Text style={styles.merchant}>
-                  Comercio: {user.active_merchant.name}
+                  {t("account.merchantLabel")}: {user.active_merchant.name}
                 </Text>
               ) : null}
             </View>
@@ -184,7 +192,7 @@ export default function CuentaScreen() {
         </Card>
 
         {merchants.length > 1 ? (
-          <Card title="Comercio activo">
+          <Card title={t("account.activeMerchant")}>
             <View style={styles.form}>
               {merchants.map((m) => {
                 const active = user?.active_merchant_id === m.id;
@@ -206,22 +214,22 @@ export default function CuentaScreen() {
           </Card>
         ) : null}
 
-        <Card title="Cambiar contraseña">
+        <Card title={t("account.passwordTitle")}>
           <View style={styles.form}>
             <Input
-              label="Contraseña actual"
+              label={t("changePassword.currentPassword")}
               secureTextEntry
               value={currentPassword}
               onChangeText={setCurrentPassword}
             />
             <Input
-              label="Nueva contraseña"
+              label={t("changePassword.newPassword")}
               secureTextEntry
               value={newPassword}
               onChangeText={setNewPassword}
             />
             <Input
-              label="Confirmar contraseña"
+              label={t("changePassword.confirmPassword")}
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -229,7 +237,7 @@ export default function CuentaScreen() {
             {passwordError ? <Text style={styles.error}>{passwordError}</Text> : null}
             {passwordOk ? <Text style={styles.ok}>{passwordOk}</Text> : null}
             <Button
-              title="Actualizar contraseña"
+              title={t("account.passwordUpdate")}
               fullWidth
               loading={savingPassword}
               onPress={() => void changePassword()}
@@ -237,7 +245,12 @@ export default function CuentaScreen() {
           </View>
         </Card>
 
-        <Button title="Cerrar sesión" variant="secondary" fullWidth onPress={logout} />
+        <Button
+          title={t("common.logout")}
+          variant="secondary"
+          fullWidth
+          onPress={logout}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );

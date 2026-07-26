@@ -1,0 +1,131 @@
+import type { DocumentBrief } from "@/types/api";
+
+export type DocumentTypeValue =
+  | "SSN_CARD"
+  | "DRIVERS_LICENSE_FRONT"
+  | "DRIVERS_LICENSE_BACK"
+  | "UTILITY_BILL"
+  | "BANK_STATEMENT"
+  | "PASSPORT"
+  | "GREEN_CARD"
+  | "WORK_PERMIT";
+
+export interface DocumentSlotDef {
+  type: DocumentTypeValue;
+}
+
+export interface DocumentGroupDef {
+  id: string;
+  titleKey: string;
+  slots: DocumentSlotDef[];
+}
+
+export interface DocumentSectionDef {
+  id: string;
+  titleKey: string;
+  descriptionKey: string;
+  primary: DocumentGroupDef;
+  alternatives?: DocumentGroupDef[];
+}
+
+export const DOCUMENT_SECTIONS: DocumentSectionDef[] = [
+  {
+    id: "ssn",
+    titleKey: "portalDocs.sections.ssn.title",
+    descriptionKey: "portalDocs.sections.ssn.description",
+    primary: {
+      id: "ssn",
+      titleKey: "portalDocs.sections.ssn.title",
+      slots: [{ type: "SSN_CARD" }],
+    },
+  },
+  {
+    id: "identity",
+    titleKey: "portalDocs.sections.identity.title",
+    descriptionKey: "portalDocs.sections.identity.description",
+    primary: {
+      id: "drivers_license",
+      titleKey: "portalDocs.sections.identity.license",
+      slots: [
+        { type: "DRIVERS_LICENSE_FRONT" },
+        { type: "DRIVERS_LICENSE_BACK" },
+      ],
+    },
+    alternatives: [
+      {
+        id: "passport",
+        titleKey: "documentTypes.PASSPORT",
+        slots: [{ type: "PASSPORT" }],
+      },
+      {
+        id: "green_card",
+        titleKey: "documentTypes.GREEN_CARD",
+        slots: [{ type: "GREEN_CARD" }],
+      },
+      {
+        id: "work_permit",
+        titleKey: "documentTypes.WORK_PERMIT",
+        slots: [{ type: "WORK_PERMIT" }],
+      },
+    ],
+  },
+  {
+    id: "address",
+    titleKey: "portalDocs.sections.address.title",
+    descriptionKey: "portalDocs.sections.address.description",
+    primary: {
+      id: "utility_bill",
+      titleKey: "documentTypes.UTILITY_BILL",
+      slots: [{ type: "UTILITY_BILL" }],
+    },
+    alternatives: [
+      {
+        id: "bank_statement",
+        titleKey: "documentTypes.BANK_STATEMENT",
+        slots: [{ type: "BANK_STATEMENT" }],
+      },
+    ],
+  },
+];
+
+// Estados que obligan al cliente a volver a subir el documento.
+const REPLACEMENT_STATUSES = new Set(["RECHAZADO", "PROXIMO_A_VENCER"]);
+
+export function getSectionGroups(section: DocumentSectionDef): DocumentGroupDef[] {
+  return [section.primary, ...(section.alternatives ?? [])];
+}
+
+export function inferActiveGroupId(
+  section: DocumentSectionDef,
+  documents: DocumentBrief[] | undefined,
+): string {
+  const uploaded = new Set((documents ?? []).map((d) => d.type));
+  const byType = new Map((documents ?? []).map((d) => [d.type, d]));
+  const groups = getSectionGroups(section);
+  const withUploads = groups.filter((group) =>
+    group.slots.some((slot) => uploaded.has(slot.type)),
+  );
+
+  if (withUploads.length === 1) return withUploads[0]!.id;
+  if (withUploads.length > 1) {
+    // Una alternativa ya resuelta gana sobre otra rechazada: si la licencia
+    // está aprobada, no mostramos la green card rechazada como pendiente.
+    const resolved = withUploads.find((group) =>
+      group.slots.every((slot) => {
+        const doc = byType.get(slot.type);
+        return doc !== undefined && !REPLACEMENT_STATUSES.has(doc.verification_status);
+      }),
+    );
+    if (resolved) return resolved.id;
+    const complete = withUploads.find((group) =>
+      group.slots.every((slot) => uploaded.has(slot.type)),
+    );
+    if (complete) return complete.id;
+    return withUploads[0]!.id;
+  }
+  return section.primary.id;
+}
+
+export function groupLabel(group: DocumentGroupDef, t: (key: string) => string): string {
+  return t(group.titleKey);
+}

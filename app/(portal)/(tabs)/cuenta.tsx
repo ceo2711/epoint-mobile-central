@@ -13,12 +13,14 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Section } from "@/components/ui/Section";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import { colors } from "@/theme/tokens";
 
 export default function PortalCuentaScreen() {
   const { user, token, logout } = useAuth();
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,11 +34,11 @@ export default function PortalCuentaScreen() {
     setError(null);
 
     if (newPassword !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+      setError(t("changePassword.mismatch"));
       return;
     }
     if (newPassword.length < 8) {
-      setError("La nueva contraseña debe tener al menos 8 caracteres");
+      setError(t("changePassword.minLength"));
       return;
     }
 
@@ -53,9 +55,9 @@ export default function PortalCuentaScreen() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setMessage("Contraseña actualizada correctamente");
+      setMessage(t("account.passwordUpdated"));
     } catch (err) {
-      setError(getUserFacingErrorMessage(err, "No se pudo cambiar la contraseña"));
+      setError(getUserFacingErrorMessage(err, t("account.passwordError")));
     } finally {
       setSubmitting(false);
     }
@@ -71,35 +73,39 @@ export default function PortalCuentaScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Cuenta</Text>
+        <Text style={styles.title}>{t("account.portalTitle")}</Text>
 
         <AvatarEditorCard />
 
-        <Card title="Perfil">
+        <Card title={t("account.profileTitle")}>
           <Text style={styles.name}>
             {user?.first_name} {user?.last_name}
           </Text>
           <Text style={styles.meta}>{user?.email}</Text>
           {user?.phone ? <Text style={styles.meta}>{user.phone}</Text> : null}
-          {user?.role ? <Text style={styles.meta}>Rol: {user.role.name}</Text> : null}
+          {user?.role ? (
+            <Text style={styles.meta}>
+              {t("common.role")}: {user.role.name}
+            </Text>
+          ) : null}
         </Card>
 
-        <Section title="Cambiar contraseña">
+        <Section title={t("account.passwordTitle")}>
           <View style={styles.form}>
             <Input
-              label="Contraseña actual"
+              label={t("changePassword.currentPassword")}
               secureTextEntry
               value={currentPassword}
               onChangeText={setCurrentPassword}
             />
             <Input
-              label="Nueva contraseña"
+              label={t("changePassword.newPassword")}
               secureTextEntry
               value={newPassword}
               onChangeText={setNewPassword}
             />
             <Input
-              label="Confirmar contraseña"
+              label={t("changePassword.confirmPassword")}
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -107,7 +113,7 @@ export default function PortalCuentaScreen() {
             {message ? <Text style={styles.success}>{message}</Text> : null}
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <Button
-              title={submitting ? "Guardando…" : "Actualizar contraseña"}
+              title={submitting ? t("common.saving") : t("account.passwordUpdate")}
               loading={submitting}
               fullWidth
               onPress={onChangePassword}
@@ -115,7 +121,12 @@ export default function PortalCuentaScreen() {
           </View>
         </Section>
 
-        <Button title="Cerrar sesión" variant="secondary" fullWidth onPress={logout} />
+        <Button
+          title={t("common.logout")}
+          variant="secondary"
+          fullWidth
+          onPress={logout}
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -130,7 +141,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     gap: 18,
-    paddingBottom: 48,
+    // Deja libre la zona del botón flotante del chat.
+    paddingBottom: 130,
   },
   title: {
     fontSize: 28,

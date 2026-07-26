@@ -9,9 +9,8 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { Client } from "@/types/api";
@@ -20,26 +19,27 @@ import { colors, radii } from "@/theme/tokens";
 const STEPS = [
   {
     step: "1",
-    title: "Completá tus datos",
-    description: "SSN, fecha de nacimiento, domicilio y vehículo.",
+    titleKey: "portal.step1Title",
+    descKey: "portal.step1Desc",
     href: "/(portal)/(tabs)/datos",
   },
   {
     step: "2",
-    title: "Subí tus documentos",
-    description: "Licencia, SSN y comprobantes para verificación.",
+    titleKey: "portal.step2Title",
+    descKey: "portal.step2Desc",
     href: "/(portal)/(tabs)/documentos",
   },
   {
     step: "3",
-    title: "Seguí tu tablero",
-    description: "Revisá el progreso de tu onboarding.",
+    titleKey: "portal.step3Title",
+    descKey: "portal.step3Desc",
     href: "/(portal)/(tabs)/tablero",
   },
 ] as const;
 
 export default function PortalHomeScreen() {
   const { token, user, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,13 +55,13 @@ export default function PortalHomeScreen() {
         const data = await api.get<Client>("/portal/me", token);
         setClient(data);
       } catch (err) {
-        setError(getUserFacingErrorMessage(err, "No se pudo cargar tu portal"));
+        setError(getUserFacingErrorMessage(err, t("portal.loadError")));
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [token],
+    [token, t],
   );
 
   useEffect(() => {
@@ -71,15 +71,10 @@ export default function PortalHomeScreen() {
   }, [authLoading, token, load]);
 
   if (authLoading || loading) {
-    return <ScreenState loading message="Cargando tu portal…" />;
+    return <ScreenState loading message={t("portal.loading")} />;
   }
 
-  const displayName =
-    client
-      ? `${client.first_name} ${client.last_name}`.trim()
-      : user
-        ? `${user.first_name} ${user.last_name}`.trim()
-        : "";
+  const firstName = (client?.first_name || user?.first_name || "").trim();
 
   return (
     <ScrollView
@@ -96,26 +91,14 @@ export default function PortalHomeScreen() {
         />
       }
     >
-      <Text style={styles.title}>Bienvenido{displayName ? `, ${displayName}` : ""}</Text>
-      <Text style={styles.subtitle}>
-        Completá tu información y seguí el avance de tu onboarding desde acá.
+      <Text style={styles.title}>
+        {firstName ? t("portal.welcomeNamed", { name: firstName }) : t("portal.welcome")}
       </Text>
+      <Text style={styles.subtitle}>{t("portal.subtitle")}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Card>
-        {client?.status ? <StatusBadge status={client.status} /> : null}
-        {client?.merchant ? (
-          <Text style={styles.meta}>Comercio: {client.merchant.name}</Text>
-        ) : null}
-        {client?.advisor ? (
-          <Text style={styles.meta}>
-            Asesor: {client.advisor.first_name} {client.advisor.last_name}
-          </Text>
-        ) : null}
-      </Card>
-
-      <Text style={styles.sectionLabel}>Próximos pasos</Text>
+      <Text style={styles.sectionLabel}>{t("portal.nextSteps")}</Text>
       {STEPS.map((item) => (
         <TouchableOpacity
           key={item.step}
@@ -128,9 +111,9 @@ export default function PortalHomeScreen() {
             <Text style={styles.stepNumber}>{item.step}</Text>
           </View>
           <View style={styles.stepBody}>
-            <Text style={styles.stepTitle}>{item.title}</Text>
-            <Text style={styles.stepDesc}>{item.description}</Text>
-            <Text style={styles.stepLink}>Ir →</Text>
+            <Text style={styles.stepTitle}>{t(item.titleKey)}</Text>
+            <Text style={styles.stepDesc}>{t(item.descKey)}</Text>
+            <Text style={styles.stepLink}>{t("common.go")}</Text>
           </View>
         </TouchableOpacity>
       ))}
@@ -146,10 +129,11 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     gap: 14,
-    paddingBottom: 40,
+    // Deja libre la zona del botón flotante del chat.
+    paddingBottom: 130,
   },
   title: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "700",
     color: colors.brown,
   },
@@ -166,11 +150,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: "uppercase",
     color: colors.brownMuted,
-  },
-  meta: {
-    fontSize: 14,
-    color: colors.ink,
-    lineHeight: 20,
   },
   stepCard: {
     flexDirection: "row",

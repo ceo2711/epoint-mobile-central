@@ -1,13 +1,19 @@
 import type { User } from "@/types/api";
 
-export type StaffRoleCode = "ADMIN" | "SALES_REP" | "ONBOARDING_MANAGER" | "ADVISOR" | "AREA_LEADER";
+export type StaffRoleCode =
+  | "ADMIN"
+  | "SALES_REP"
+  | "ONBOARDING_MANAGER"
+  | "ADVISOR"
+  | "AREA_LEADER";
 
 export interface NavItem {
   /** Expo Router path (group-relative) */
   href: string;
   /** Web href for parity reference */
   webHref: string;
-  label: string;
+  /** i18n key, e.g. nav.panel */
+  labelKey: string;
   /** Ionicons name */
   icon: string;
   permission?: string | null;
@@ -20,7 +26,7 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/dashboard",
     webHref: "/dashboard",
-    label: "Panel",
+    labelKey: "nav.panel",
     icon: "grid-outline",
     permission: null,
     primaryTab: true,
@@ -28,7 +34,7 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/clientes",
     webHref: "/clientes",
-    label: "Clientes",
+    labelKey: "nav.clients",
     icon: "people-outline",
     permission: "clients:read",
     primaryTab: true,
@@ -36,7 +42,7 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/prospectos",
     webHref: "/prospectos",
-    label: "Prospectos",
+    labelKey: "nav.prospects",
     icon: "person-add-outline",
     permission: "prospects:read",
     roles: ["ADMIN", "SALES_REP"],
@@ -45,7 +51,7 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/notificaciones",
     webHref: "/notificaciones",
-    label: "Notificaciones",
+    labelKey: "nav.notifications",
     icon: "notifications-outline",
     permission: null,
     primaryTab: true,
@@ -53,7 +59,7 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/calendario",
     webHref: "/calendario",
-    label: "Calendario",
+    labelKey: "nav.calendar",
     icon: "calendar-outline",
     permission: null,
     roles: ["ADMIN", "SALES_REP"],
@@ -61,7 +67,7 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/contratos",
     webHref: "/contratos",
-    label: "Contratos",
+    labelKey: "nav.contracts",
     icon: "document-text-outline",
     permission: null,
     roles: ["ADMIN", "SALES_REP"],
@@ -69,7 +75,7 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/pagos",
     webHref: "/pagos",
-    label: "Pagos",
+    labelKey: "nav.payments",
     icon: "card-outline",
     permission: null,
     roles: ["ADMIN", "SALES_REP"],
@@ -77,28 +83,28 @@ export const internalNav: NavItem[] = [
   {
     href: "/(staff)/(tabs)/usuarios",
     webHref: "/usuarios",
-    label: "Usuarios",
+    labelKey: "nav.users",
     icon: "people-circle-outline",
     permission: "users:read",
   },
   {
     href: "/(staff)/(tabs)/comercios",
     webHref: "/comercios",
-    label: "Comercios",
+    labelKey: "nav.merchants",
     icon: "storefront-outline",
     permission: "merchants:create",
   },
   {
     href: "/(staff)/(tabs)/roles",
     webHref: "/roles",
-    label: "Roles",
+    labelKey: "nav.roles",
     icon: "shield-checkmark-outline",
     permission: "roles:read",
   },
   {
     href: "/(staff)/(tabs)/cuenta",
     webHref: "/configuracion",
-    label: "Mi cuenta",
+    labelKey: "nav.account",
     icon: "person-outline",
     permission: null,
     primaryTab: true,
@@ -109,35 +115,35 @@ export const clientNav: NavItem[] = [
   {
     href: "/(portal)/(tabs)",
     webHref: "/portal",
-    label: "Inicio",
+    labelKey: "nav.home",
     icon: "home-outline",
     primaryTab: true,
   },
   {
     href: "/(portal)/(tabs)/datos",
     webHref: "/portal/datos",
-    label: "Mis datos",
+    labelKey: "nav.myData",
     icon: "person-outline",
     primaryTab: true,
   },
   {
     href: "/(portal)/(tabs)/documentos",
     webHref: "/portal/documentos",
-    label: "Documentos",
+    labelKey: "nav.documents",
     icon: "folder-outline",
     primaryTab: true,
   },
   {
     href: "/(portal)/(tabs)/tablero",
     webHref: "/portal/tablero",
-    label: "Tablero",
+    labelKey: "nav.myBoard",
     icon: "clipboard-outline",
     primaryTab: true,
   },
   {
     href: "/(portal)/(tabs)/cuenta",
     webHref: "/portal/cuenta",
-    label: "Cuenta",
+    labelKey: "nav.portalAccount",
     icon: "settings-outline",
     primaryTab: true,
   },
@@ -165,10 +171,8 @@ export function getDefaultAppPath(roleCode: string): string {
   return roleCode === "CLIENT" ? "/(portal)/(tabs)" : "/(staff)/(tabs)/dashboard";
 }
 
-export function mustForcePasswordChange(user: { must_change_password: boolean } | null): boolean {
+export function mustForcePasswordChange(user: {
+  must_change_password: boolean;
+} | null): boolean {
   return Boolean(user?.must_change_password);
 }
-
-export const NAV_LABELS: Record<string, string> = Object.fromEntries(
-  [...internalNav, ...clientNav].map((item) => [item.webHref, item.label]),
-);

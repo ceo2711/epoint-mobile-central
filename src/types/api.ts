@@ -140,6 +140,13 @@ export interface CardAttachment {
   approval_reasons?: LocalizedStringList | null;
 }
 
+export type BoardCardLabel =
+  | "URGENTE"
+  | "RECHAZADA"
+  | "DENEGADA"
+  | "APROBADA"
+  | "PENDIENTE";
+
 export interface BoardCard {
   id: number;
   title: string;
@@ -147,6 +154,7 @@ export interface BoardCard {
   instructions_md: string | null;
   external_links: string | null;
   status: string;
+  label?: BoardCardLabel | string | null;
   position: number;
   requires_credentials: boolean;
   requires_file_upload: boolean;

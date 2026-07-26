@@ -9,6 +9,7 @@ import {
 
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { DashboardMetrics } from "@/types/api";
@@ -25,6 +26,7 @@ function MetricCard({ label, value }: { label: string; value: number }) {
 
 export default function DashboardScreen() {
   const { user, token, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [data, setData] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,13 +43,13 @@ export default function DashboardScreen() {
         const metrics = await api.get<DashboardMetrics>("/dashboard/metrics", token);
         setData(metrics);
       } catch (err) {
-        setError(getUserFacingErrorMessage(err, "No se pudieron cargar las métricas"));
+        setError(getUserFacingErrorMessage(err, t("dashboard.loadError")));
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [token],
+    [token, t],
   );
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function DashboardScreen() {
   }, [authLoading, token, load]);
 
   if (authLoading || (loading && !data && !error)) {
-    return <ScreenState loading message="Cargando panel…" />;
+    return <ScreenState loading message={t("dashboard.loading")} />;
   }
 
   const summary = data?.summary;
@@ -75,9 +77,9 @@ export default function DashboardScreen() {
         />
       }
     >
-      <Text style={styles.title}>Panel</Text>
+      <Text style={styles.title}>{t("dashboard.title")}</Text>
       <Text style={styles.subtitle}>
-        {name ? `Hola, ${name}` : "Bienvenido"} · {user?.role.name}
+        {name ? t("dashboard.hello", { name }) : t("dashboard.welcome")} · {user?.role.name}
         {data?.merchant ? ` · ${data.merchant.name}` : ""}
       </Text>
 
@@ -85,29 +87,32 @@ export default function DashboardScreen() {
 
       {summary ? (
         <View style={styles.grid}>
-          <MetricCard label="Total" value={summary.total} />
-          <MetricCard label="Pendientes" value={summary.pending_review} />
-          <MetricCard label="Aprobados" value={summary.approved_in_onboarding} />
-          <MetricCard label="Rechazados" value={summary.rejected} />
-          <MetricCard label="En progreso" value={summary.onboarding_in_progress} />
-          <MetricCard label="Completados" value={summary.completed} />
+          <MetricCard label={t("dashboard.total")} value={summary.total} />
+          <MetricCard label={t("dashboard.pending")} value={summary.pending_review} />
+          <MetricCard label={t("dashboard.approved")} value={summary.approved_in_onboarding} />
+          <MetricCard label={t("dashboard.rejected")} value={summary.rejected} />
+          <MetricCard label={t("dashboard.inProgress")} value={summary.onboarding_in_progress} />
+          <MetricCard label={t("dashboard.completed")} value={summary.completed} />
         </View>
       ) : null}
 
       {data?.areas?.length ? (
-        <Card title="Áreas">
+        <Card title={t("dashboard.areas")}>
           {data.areas.map((area) => (
             <View key={area.code} style={styles.areaRow}>
               <View style={styles.areaInfo}>
                 <Text style={styles.areaName}>{area.name}</Text>
                 <Text style={styles.areaMeta}>
-                  {area.in_pipeline} en pipeline · {area.completed} completados
+                  {t("dashboard.areaMeta", {
+                    in: area.in_pipeline,
+                    done: area.completed,
+                  })}
                 </Text>
               </View>
               <Text style={styles.conversion}>
                 {area.conversion_rate != null
                   ? `${Math.round(area.conversion_rate * 100)}%`
-                  : "—"}
+                  : t("common.dash")}
               </Text>
             </View>
           ))}

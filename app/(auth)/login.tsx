@@ -2,34 +2,41 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ScreenState } from "@/components/ui/ScreenState";
+import { useTranslation } from "@/contexts/LanguageContext";
+import { AuthGlassShell } from "@/features/auth/AuthGlassShell";
 import { useAuth, mustForcePasswordChange } from "@/features/auth/AuthContext";
 import { getUserFacingErrorMessage } from "@/lib/api";
 import { getDefaultAppPath } from "@/lib/appNavigation";
+import { colors } from "@/theme/tokens";
 
 export default function LoginScreen() {
   const { login, user, isLoading } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (isLoading) {
-    return <ScreenState loading />;
+    return (
+      <View style={styles.loadingRoot}>
+        <ScreenState loading />
+      </View>
+    );
   }
 
   if (user) {
@@ -44,7 +51,7 @@ export default function LoginScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      const result = await login(email, password);
+      const result = await login(email.trim().toLowerCase(), password);
       if (result.requiresTwoFactor) {
         router.push({
           pathname: "/(auth)/two-factor",
@@ -52,181 +59,209 @@ export default function LoginScreen() {
         });
       }
     } catch (err) {
-      setError(getUserFacingErrorMessage(err, "No se pudo iniciar sesión"));
+      setError(getUserFacingErrorMessage(err, t("common.loginError")));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <View style={styles.root}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <ScrollView
-          style={styles.flex}
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              paddingTop: insets.top + 24,
-              paddingBottom: insets.bottom + 24,
-            },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          bounces={false}
-        >
-          <View style={styles.centerBlock}>
-            <View style={styles.logoWrap}>
-              <Image
-                source={require("../../assets/epoint-logo.png")}
-                style={styles.logo}
-                resizeMode="cover"
-                accessibilityLabel="Epoint"
-              />
-            </View>
-            <Text style={styles.title}>Bienvenido</Text>
-            <Text style={styles.subtitle}>Ingresá a Epoint Central</Text>
-
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="username"
-              autoComplete="email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="vos@epoint.com"
-              placeholderTextColor="#a08070"
-              returnKeyType="next"
+    <AuthGlassShell
+      cardPaddingTop={20}
+      topLeftContent={
+        <View style={styles.brandRow}>
+          <View style={styles.logoWrap}>
+            <Image
+              source={require("../../assets/epoint-logo.png")}
+              style={styles.logo}
+              resizeMode="cover"
+              accessibilityLabel="Epoint"
             />
-
-            <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              textContentType="password"
-              autoComplete="password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              placeholderTextColor="#a08070"
-              returnKeyType="go"
-              onSubmitEditing={onSubmit}
-            />
-
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={submitting}
-              onPress={onSubmit}
-              style={[styles.loginButton, submitting && styles.loginButtonDisabled]}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.loginButtonText}>Iniciar sesión</Text>
-              )}
-            </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </View>
+          <Text style={styles.brandName}>Epoint Corporation</Text>
+        </View>
+      }
+    >
+      <Text style={styles.title}>{t("login.welcome")}</Text>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <View style={styles.inputWrap}>
+        <Ionicons name="mail-outline" size={18} color={colors.brownMuted} style={styles.inputIcon} />
+        <TextInput
+          style={styles.input}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          textContentType="username"
+          autoComplete="email"
+          value={email}
+          onChangeText={(value) => setEmail(value.toLowerCase())}
+          placeholder={t("login.emailLabel")}
+          placeholderTextColor={colors.brownMuted}
+          returnKeyType="next"
+        />
+      </View>
+
+      <View style={styles.inputWrap}>
+        <Ionicons
+          name="lock-closed-outline"
+          size={18}
+          color={colors.brownMuted}
+          style={styles.inputIcon}
+        />
+        <TextInput
+          style={[styles.input, styles.inputWithToggle]}
+          secureTextEntry={!showPassword}
+          textContentType="password"
+          autoComplete="password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder={t("login.passwordLabel")}
+          placeholderTextColor={colors.brownMuted}
+          returnKeyType="go"
+          onSubmitEditing={onSubmit}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            showPassword ? t("login.hidePassword") : t("login.showPassword")
+          }
+          onPress={() => setShowPassword((v) => !v)}
+          style={styles.eyeBtn}
+          hitSlop={8}
+        >
+          <Ionicons
+            name={showPassword ? "eye-off-outline" : "eye-outline"}
+            size={20}
+            color={colors.brownMuted}
+          />
+        </Pressable>
+      </View>
+
+      <TouchableOpacity
+        activeOpacity={0.9}
+        disabled={submitting}
+        onPress={onSubmit}
+        style={[styles.loginButton, submitting && styles.loginButtonDisabled]}
+      >
+        <LinearGradient
+          colors={["#4a8054", "#3d6b45", "#2d5234"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.loginGradient}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.loginButtonText}>{t("login.submit")}</Text>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    </AuthGlassShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
+  loadingRoot: {
     flex: 1,
-    backgroundColor: "#faf8f5",
+    backgroundColor: "#1a1008",
   },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  centerBlock: {
-    width: "100%",
-    maxWidth: 400,
-    alignSelf: "center",
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   logoWrap: {
-    width: 120,
-    height: 120,
-    alignSelf: "center",
-    borderRadius: 24,
+    width: 54,
+    height: 54,
+    borderRadius: 13,
     overflow: "hidden",
-    marginBottom: 12,
-    backgroundColor: "#f5f1e6",
+    backgroundColor: "#f0ebe1",
+    borderWidth: 1,
+    borderColor: "rgba(240, 234, 218, 0.9)",
   },
   logo: {
     width: "100%",
     height: "100%",
   },
-  title: {
-    fontSize: 24,
+  brandName: {
+    fontSize: 18,
     fontWeight: "700",
-    color: "#1a1a1a",
+    color: "#ffffff",
+    letterSpacing: -0.3,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "700",
+    color: "#faf7f0",
+    marginBottom: 22,
     textAlign: "center",
-    marginBottom: 6,
+    textShadowColor: "rgba(0, 0, 0, 0.35)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  subtitle: {
-    fontSize: 15,
-    color: "#6b6560",
-    textAlign: "center",
-    marginBottom: 28,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#5c4033",
-    marginBottom: 6,
-  },
-  input: {
-    height: 52,
+  inputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#e8e4df",
     backgroundColor: "#ffffff",
     borderRadius: 12,
-    paddingHorizontal: 14,
+    marginBottom: 16,
+    minHeight: 52,
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
     fontSize: 16,
     color: "#1a1a1a",
-    marginBottom: 16,
+    paddingVertical: 12,
+  },
+  inputWithToggle: {
+    paddingRight: 8,
+  },
+  eyeBtn: {
+    padding: 4,
   },
   error: {
-    color: "#b54a3a",
+    color: "#b91c1c",
     fontSize: 14,
     fontWeight: "600",
-    marginBottom: 12,
-    textAlign: "center",
-    backgroundColor: "#fde8e6",
+    marginBottom: 14,
+    textAlign: "left",
+    backgroundColor: "#fef2f2",
     borderWidth: 1,
-    borderColor: "#f0b4ae",
+    borderColor: "#fecaca",
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
   },
   loginButton: {
-    height: 56,
-    width: "100%",
-    backgroundColor: "#3d6b45",
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
     marginTop: 8,
+    borderRadius: 14,
+    overflow: "hidden",
+    shadowColor: "#3d6b45",
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   loginButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.75,
+  },
+  loginGradient: {
+    minHeight: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
   },
   loginButtonText: {
     color: "#ffffff",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
   },
 });

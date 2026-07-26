@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -11,16 +11,28 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
+import { Select } from "@/components/ui/Select";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { DocumentPreviewCard } from "@/features/documents/DocumentPreviewCard";
-import { UploadSourceSheet } from "@/features/documents/UploadSourceSheet";
-import { waitForModalDismiss, pickUploadFile, type UploadSource } from "@/features/documents/pickUploadSource";
-import { api, getUserFacingErrorMessage } from "@/lib/api";
 import {
-  DOCUMENT_TYPES,
-  VERIFICATION_STATUS_LABELS,
-  type DocumentBrief,
-} from "@/types/api";
+  DOCUMENT_SECTIONS,
+  getSectionGroups,
+  groupLabel,
+  inferActiveGroupId,
+  type DocumentGroupDef,
+  type DocumentSectionDef,
+  type DocumentSlotDef,
+  type DocumentTypeValue,
+} from "@/features/documents/document-requirements";
+import { UploadSourceSheet } from "@/features/documents/UploadSourceSheet";
+import {
+  waitForModalDismiss,
+  pickUploadFile,
+  type UploadSource,
+} from "@/features/documents/pickUploadSource";
+import { api, getUserFacingErrorMessage } from "@/lib/api";
+import type { DocumentBrief } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
 
 const DOC_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -31,8 +43,163 @@ const DOC_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   PROXIMO_A_VENCER: { bg: "#fef3c7", text: "#92400e" },
 };
 
+const SSN_SECTION = DOCUMENT_SECTIONS.find((s) => s.id === "ssn")!;
+const IDENTITY_SECTION = DOCUMENT_SECTIONS.find((s) => s.id === "identity")!;
+const ADDRESS_SECTION = DOCUMENT_SECTIONS.find((s) => s.id === "address")!;
+
+function useDocumentGroupSelection(
+  section: DocumentSectionDef,
+  documents: DocumentBrief[],
+  ready: boolean,
+) {
+  const [groupId, setGroupId] = useState(section.primary.id);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    // Inferir solo una vez cuando ya cargaron los docs; no pisar la elección manual.
+    if (!ready || initialized.current) return;
+    setGroupId(inferActiveGroupId(section, documents));
+    initialized.current = true;
+  }, [documents, section, ready]);
+
+  return [groupId, setGroupId] as const;
+}
+
+// Prioridad de lo que el cliente necesita ver primero si la opción tiene varios archivos.
+const STATUS_PRIORITY = [
+  "RECHAZADO",
+  "PROXIMO_A_VENCER",
+  "PENDIENTE",
+  "EN_PROCESO",
+  "APROBADO",
+];
+
+function groupHint(
+  group: DocumentGroupDef,
+  documents: DocumentBrief[],
+  t: (key: string) => string,
+): string {
+  const docs = group.slots.map((slot) => documents.find((d) => d.type === slot.type));
+  if (docs.some((doc) => !doc)) return t("portalDocs.pendingUpload");
+
+  const statuses = docs.map((doc) => doc!.verification_status);
+  const status = STATUS_PRIORITY.find((candidate) => statuses.includes(candidate));
+  return status ? t(`verificationStatus.${status}`) : t("portalDocs.pendingUpload");
+}
+
+function DocumentSlotCard({
+  slot,
+  doc,
+  token,
+  uploading,
+  onUploadPress,
+  t,
+}: {
+  slot: DocumentSlotDef;
+  doc: DocumentBrief | undefined;
+  token: string;
+  uploading: string | null;
+  onUploadPress: (docType: DocumentTypeValue) => void;
+  t: (key: string) => string;
+}) {
+  const status = doc?.verification_status;
+  const palette = status
+    ? DOC_STATUS_COLORS[status] ?? { bg: colors.creamWarm, text: colors.soft }
+    : null;
+  const busy = uploading === slot.type;
+
+  return (
+    <Card title={t(`documentTypes.${slot.type}`)}>
+      {doc ? (
+        <View style={styles.docMeta}>
+          {palette && status ? (
+            <View style={[styles.badge, { backgroundColor: palette.bg }]}>
+              <Text style={[styles.badgeText, { color: palette.text }]}>
+                {t(`verificationStatus.${status}`)}
+              </Text>
+            </View>
+          ) : null}
+          <DocumentPreviewCard doc={doc} token={token} />
+        </View>
+      ) : (
+        <Text style={styles.empty}>{t("portalDocs.pendingUpload")}</Text>
+      )}
+      <Button
+        title={
+          busy
+            ? t("common.uploading")
+            : doc
+              ? t("common.replace")
+              : t("common.upload")
+        }
+        loading={busy}
+        variant="secondary"
+        fullWidth
+        disabled={busy || !!uploading}
+        onPress={() => onUploadPress(slot.type)}
+      />
+    </Card>
+  );
+}
+
+function SelectableSection({
+  section,
+  selectedGroupId,
+  onSelectGroup,
+  documents,
+  token,
+  uploading,
+  onUploadPress,
+  t,
+}: {
+  section: DocumentSectionDef;
+  selectedGroupId: string;
+  onSelectGroup: (groupId: string) => void;
+  documents: DocumentBrief[];
+  token: string;
+  uploading: string | null;
+  onUploadPress: (docType: DocumentTypeValue) => void;
+  t: (key: string) => string;
+}) {
+  const groups = getSectionGroups(section);
+  const activeGroup =
+    groups.find((group) => group.id === selectedGroupId) ?? section.primary;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{t(section.titleKey)}</Text>
+      <Text style={styles.sectionDesc}>{t(section.descriptionKey)}</Text>
+
+      <Select
+        label={t("portalDocs.documentTypeSelect")}
+        sheetTitle={t(section.titleKey)}
+        value={activeGroup.id}
+        options={groups.map((group) => ({
+          value: group.id,
+          label: groupLabel(group, t),
+          hint: groupHint(group, documents, t),
+        }))}
+        onChange={onSelectGroup}
+      />
+
+      {activeGroup.slots.map((slot) => (
+        <DocumentSlotCard
+          key={slot.type}
+          slot={slot}
+          doc={documents.find((d) => d.type === slot.type)}
+          token={token}
+          uploading={uploading}
+          onUploadPress={onUploadPress}
+          t={t}
+        />
+      ))}
+    </View>
+  );
+}
+
 export default function PortalDocumentosScreen() {
   const { token, isLoading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [documents, setDocuments] = useState<DocumentBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,6 +208,19 @@ export default function PortalDocumentosScreen() {
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pickerDocType, setPickerDocType] = useState<string | null>(null);
+
+  const docsReady = !authLoading && !loading;
+
+  const [identityGroupId, setIdentityGroupId] = useDocumentGroupSelection(
+    IDENTITY_SECTION,
+    documents,
+    docsReady,
+  );
+  const [addressGroupId, setAddressGroupId] = useDocumentGroupSelection(
+    ADDRESS_SECTION,
+    documents,
+    docsReady,
+  );
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -51,13 +231,13 @@ export default function PortalDocumentosScreen() {
         const data = await api.get<DocumentBrief[]>("/portal/documents", token);
         setDocuments(data);
       } catch (err) {
-        setError(getUserFacingErrorMessage(err, "No se pudieron cargar los documentos"));
+        setError(getUserFacingErrorMessage(err, t("portalDocs.loadError")));
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [token],
+    [token, t],
   );
 
   useEffect(() => {
@@ -67,7 +247,8 @@ export default function PortalDocumentosScreen() {
   }, [authLoading, token, load]);
 
   const isVerifying = documents.some(
-    (d) => d.verification_status === "PENDIENTE" || d.verification_status === "EN_PROCESO",
+    (d) =>
+      d.verification_status === "PENDIENTE" || d.verification_status === "EN_PROCESO",
   );
 
   useEffect(() => {
@@ -78,17 +259,12 @@ export default function PortalDocumentosScreen() {
     return () => clearInterval(interval);
   }, [token, isVerifying, load]);
 
-  function docsForType(type: string) {
-    return documents.filter((d) => d.type === type);
-  }
-
   async function uploadWithSource(docType: string, source: UploadSource) {
     if (!token) return;
     setPickerDocType(null);
     setMessage("");
     setIsError(false);
 
-    // Cerrar el sheet antes de abrir cámara/galería (si no, en iOS/Android no aparece)
     await waitForModalDismiss(450);
 
     try {
@@ -105,19 +281,19 @@ export default function PortalDocumentosScreen() {
 
       setUploading(docType);
       await api.upload<DocumentBrief>("/documents/upload", formData, token);
-      setMessage("Documento subido correctamente");
+      setMessage(t("portalDocs.uploadSuccess"));
       setIsError(false);
       await load({ silent: true });
     } catch (err) {
-      setMessage(getUserFacingErrorMessage(err, "No se pudo subir el documento"));
+      setMessage(getUserFacingErrorMessage(err, t("portalDocs.uploadError")));
       setIsError(true);
     } finally {
       setUploading(null);
     }
   }
 
-  if (authLoading || loading) {
-    return <ScreenState loading message="Cargando documentos…" />;
+  if (authLoading || loading || !token) {
+    return <ScreenState loading message={t("portalDocs.loading")} />;
   }
 
   return (
@@ -136,11 +312,8 @@ export default function PortalDocumentosScreen() {
           />
         }
       >
-        <Text style={styles.title}>Documentos</Text>
-        <Text style={styles.subtitle}>
-          Podés tomar una foto, elegir de la galería o subir un archivo. Si están pendientes
-          de verificación, el estado se actualiza solo.
-        </Text>
+        <Text style={styles.title}>{t("portalDocs.title")}</Text>
+        <Text style={styles.subtitle}>{t("portalDocs.subtitle")}</Text>
 
         {message ? (
           <Text style={isError ? styles.error : styles.success}>{message}</Text>
@@ -149,46 +322,47 @@ export default function PortalDocumentosScreen() {
         {isVerifying ? (
           <View style={styles.polling}>
             <ActivityIndicator size="small" color={colors.brand} />
-            <Text style={styles.pollingText}>Verificando documentos…</Text>
+            <Text style={styles.pollingText}>{t("portalDocs.verifying")}</Text>
           </View>
         ) : null}
 
-        {DOCUMENT_TYPES.map((docType) => {
-          const docs = docsForType(docType.value);
-          const latest = docs[0];
-          const status = latest?.verification_status;
-          const palette = status
-            ? DOC_STATUS_COLORS[status] ?? { bg: colors.creamWarm, text: colors.soft }
-            : null;
-          const busy = uploading === docType.value;
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t(SSN_SECTION.titleKey)}</Text>
+          <Text style={styles.sectionDesc}>{t(SSN_SECTION.descriptionKey)}</Text>
+          {SSN_SECTION.primary.slots.map((slot) => (
+            <DocumentSlotCard
+              key={slot.type}
+              slot={slot}
+              doc={documents.find((d) => d.type === slot.type)}
+              token={token}
+              uploading={uploading}
+              onUploadPress={setPickerDocType}
+              t={t}
+            />
+          ))}
+        </View>
 
-          return (
-            <Card key={docType.value} title={docType.label}>
-              {latest && token ? (
-                <View style={styles.docMeta}>
-                  {palette && status ? (
-                    <View style={[styles.badge, { backgroundColor: palette.bg }]}>
-                      <Text style={[styles.badgeText, { color: palette.text }]}>
-                        {VERIFICATION_STATUS_LABELS[status] ?? status}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <DocumentPreviewCard doc={latest} token={token} />
-                </View>
-              ) : (
-                <Text style={styles.empty}>Sin archivo subido</Text>
-              )}
-              <Button
-                title={busy ? "Subiendo…" : latest ? "Reemplazar archivo" : "Subir archivo"}
-                loading={busy}
-                variant="secondary"
-                fullWidth
-                disabled={busy}
-                onPress={() => setPickerDocType(docType.value)}
-              />
-            </Card>
-          );
-        })}
+        <SelectableSection
+          section={IDENTITY_SECTION}
+          selectedGroupId={identityGroupId}
+          onSelectGroup={setIdentityGroupId}
+          documents={documents}
+          token={token}
+          uploading={uploading}
+          onUploadPress={setPickerDocType}
+          t={t}
+        />
+
+        <SelectableSection
+          section={ADDRESS_SECTION}
+          selectedGroupId={addressGroupId}
+          onSelectGroup={setAddressGroupId}
+          documents={documents}
+          token={token}
+          uploading={uploading}
+          onUploadPress={setPickerDocType}
+          t={t}
+        />
       </ScrollView>
 
       <UploadSourceSheet
@@ -210,8 +384,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    gap: 14,
-    paddingBottom: 40,
+    gap: 18,
+    // Deja libre la zona del botón flotante del chat.
+    paddingBottom: 130,
   },
   title: {
     fontSize: 28,
@@ -223,6 +398,20 @@ const styles = StyleSheet.create({
     color: colors.soft,
     lineHeight: 20,
     marginBottom: 4,
+  },
+  section: {
+    gap: 10,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  sectionDesc: {
+    fontSize: 13,
+    color: colors.soft,
+    lineHeight: 18,
+    marginBottom: 2,
   },
   docMeta: {
     gap: 10,

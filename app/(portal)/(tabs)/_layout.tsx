@@ -14,6 +14,9 @@ export default function PortalTabsLayout() {
           headerShown: false,
           contentStyle: { backgroundColor: colors.cream },
           animation: "slide_from_right",
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+          animationMatchesGesture: true,
         }}
       />
     </AppShell>
