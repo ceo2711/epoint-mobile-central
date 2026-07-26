@@ -1,0 +1,16 @@
+---
+description: Cargar contexto del agente especializado ePoint CRM Mobile
+alwaysApply: true
+---
+
+# Agente Mobile
+
+Este workspace es la app mobile de ePoint CRM (Expo SDK 54).
+
+Antes de cambios no triviales, seguí:
+- `agent/CONTEXT.md`
+- `agent/RULES.md`
+
+Docs Expo: https://docs.expo.dev/versions/v54.0.0/
+
+Respuestas al usuario en español salvo que pida otro idioma.
