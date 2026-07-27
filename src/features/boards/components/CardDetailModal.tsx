@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -33,8 +34,10 @@ import {
   type UploadSource,
 } from "@/features/documents/pickUploadSource";
 import { formatDateTime } from "@/features/clients/format";
+import { useAuth } from "@/features/auth/AuthContext";
 import {
   encodeMentionsInBody,
+  excludeSelfMentionableUsers,
   filterMentionableUsers,
   getActiveMentionQuery,
   insertMentionPlain,
@@ -119,6 +122,7 @@ export function CardDetailModal({
   onUploadAttachment,
 }: CardDetailModalProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [moveOpen, setMoveOpen] = useState(false);
   const [labelOpen, setLabelOpen] = useState(false);
@@ -129,8 +133,31 @@ export function CardDetailModal({
   const [pickingFile, setPickingFile] = useState(false);
   const [stagedFiles, setStagedFiles] = useState<UploadFileAsset[]>([]);
   const [mentionableUsers, setMentionableUsers] = useState<MentionableUser[]>([]);
+  const filteredMentionableUsers = useMemo(
+    () => excludeSelfMentionableUsers(mentionableUsers, user?.id),
+    [mentionableUsers, user?.id],
+  );
   const [mentionStart, setMentionStart] = useState<number | null>(null);
   const [mentionQuery, setMentionQuery] = useState("");
+  const [androidKeyboardOpen, setAndroidKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const showSub = Keyboard.addListener("keyboardDidShow", () => {
+      setAndroidKeyboardOpen(true);
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setAndroidKeyboardOpen(false);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!visible) setAndroidKeyboardOpen(false);
+  }, [visible]);
 
   useEffect(() => {
     if (!visible) {
@@ -209,7 +236,12 @@ export function CardDetailModal({
   const mentionSuggestions =
     mentionStart === null
       ? []
-      : filterMentionableUsers(mentionableUsers, mentionQuery);
+      : filterMentionableUsers(filteredMentionableUsers, mentionQuery);
+
+  const composerBottomPadding =
+    Platform.OS === "android" && androidKeyboardOpen
+      ? 6
+      : Math.max(insets.bottom, 10) + 10;
 
   function syncMentionState(nextValue: string, cursor: number) {
     const active = getActiveMentionQuery(nextValue, cursor);
@@ -234,7 +266,7 @@ export function CardDetailModal({
 
   async function handleComment() {
     if (!card || !onAddComment || !canSend || busy) return;
-    const body = encodeMentionsInBody(comment.trim(), mentionableUsers);
+    const body = encodeMentionsInBody(comment.trim(), filteredMentionableUsers, user?.id);
     const files = stagedFiles;
     await onAddComment(
       card.id,
@@ -516,7 +548,7 @@ export function CardDetailModal({
             <View
               style={[
                 styles.composer,
-                { paddingBottom: Math.max(insets.bottom, 10) + 10 },
+                { paddingBottom: composerBottomPadding },
               ]}
             >
               {stagedFiles.length > 0 ? (
@@ -565,7 +597,6 @@ export function CardDetailModal({
                       onPress={() => applyMention(user)}
                     >
                       <Text style={styles.mentionName}>{user.full_name}</Text>
-                      <Text style={styles.mentionRole}>{user.role_code}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -877,17 +908,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.line,
-    gap: 2,
   },
   mentionName: {
     fontSize: 14,
     fontWeight: "700",
     color: colors.brown,
-  },
-  mentionRole: {
-    fontSize: 11,
-    color: colors.soft,
-    textTransform: "uppercase",
   },
   composerRow: {
     flexDirection: "row",
