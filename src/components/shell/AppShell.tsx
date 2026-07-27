@@ -27,6 +27,7 @@ import {
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { FloatingChatWidget } from "@/features/chat/components/FloatingChatWidget";
+import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { getAccessibleNavItems, type NavItem } from "@/lib/appNavigation";
 import { colors, radii } from "@/theme/tokens";
 
@@ -265,19 +266,22 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
           <Text style={styles.headerBrandText}>Epoint</Text>
         </View>
 
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel={t("common.user")}
-          onPress={onUser}
-          style={styles.headerBtn}
-        >
-          <UserAvatar
-            firstName={user?.first_name}
-            lastName={user?.last_name}
-            avatarUrl={user?.avatar_url}
-            size={36}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <NotificationBell />
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={t("common.user")}
+            onPress={onUser}
+            style={styles.headerBtn}
+          >
+            <UserAvatar
+              firstName={user?.first_name}
+              lastName={user?.last_name}
+              avatarUrl={user?.avatar_url}
+              size={36}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -381,6 +385,11 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
   },
   headerBrand: {
     flex: 1,

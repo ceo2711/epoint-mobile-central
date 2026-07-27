@@ -19,7 +19,35 @@ npm install
 npx expo start
 ```
 
-Escaneá el QR con Expo Go, o presioná `a` / `i` para emulador.
+Escaneá el QR con Expo Go, o usá los scripts de abajo.
+
+### Android emulator (importante)
+
+**No apretés `a`** si Metro está en modo LAN (`--lan` / QR del iPhone).
+Expo abre `exp://192.168.x.x:8081` y **Expo Go se cuelga** en el emulador.
+
+Usá siempre el bridge local:
+
+```bash
+# Opción A — Metro + Android en localhost
+npm run android
+
+# Opción B — ya tenés Metro (p.ej. para iPhone en LAN)
+# Emulador encendido → abre Expo Go bien (adb reverse + 127.0.0.1)
+npm run android:open
+```
+
+Si Expo Go ya quedó colgado: `npm run android:open` lo fuerza a cerrar y reabrir.
+
+### iPhone físico (misma Wi‑Fi)
+
+```bash
+npx expo start --lan
+# o: npm run start:lan
+```
+
+Escaneá el QR (`exp://192.168.x.x:8081`).
+
 
 ## Variable de entorno
 
@@ -48,6 +76,9 @@ Si no definís `EXPO_PUBLIC_API_URL`, la app usa `localhost` en iOS/web y `10.0.
 4. Reiniciá Expo con caché limpia (`npx expo start -c`) para que tome el `.env`.
 5. Celular y PC en la misma Wi‑Fi.
 
+Si el celular **no** está en la misma Wi‑Fi, apuntá a la API de Heroku:
+`EXPO_PUBLIC_API_URL=https://dev-epoint-crm-backend-3807e7e86dca.herokuapp.com/api/v1`
+
 > Nota: en apps nativas **no aplica CORS** (es solo del navegador). Si probás la app en web (`expo start --web`), el backend debe aceptar el origen de Expo.
 
 ## Auth
@@ -68,8 +99,29 @@ Si no definís `EXPO_PUBLIC_API_URL`, la app usa `localhost` en iOS/web y `10.0.
 - Prospectos (lista + detalle)
 - Calendario Calendly, Contratos DocuSign, Pagos
 - Usuarios, Comercios, Roles
-- Notificaciones
 - Mi cuenta (perfil, comercio activo, contraseña)
+
+## Push notifications (app cerrada)
+
+La **campana** (in-app + SSE) funciona en Expo Go.  
+Los **popups del sistema con la app cerrada** requieren **push remoto** y **no funcionan en Expo Go** (SDK 53+).
+
+1. Proyecto EAS ya linkeado (`extra.eas.projectId` en `app.json`).
+2. Build de desarrollo en **dispositivo físico**:
+   ```bash
+   npm run build:dev:ios
+   # o
+   npm run build:dev:android
+   ```
+3. Instalá el build, abrí la app, iniciá sesión y aceptá permisos de notificaciones.
+4. En Metro usá el dev client:
+   ```bash
+   npm run start:dev-client
+   ```
+5. Backend con `NOTIFICATIONS_DRY_RUN=false` y eventos con canal `PUSH` (p.ej. comentario con `@`).
+
+Android: en el primer `eas build` configurá credenciales FCM en [expo.dev](https://expo.dev) si te lo pide.  
+iOS: cuenta Apple Developer + push credentials (EAS te guía).
 
 Roles soportados en nav: `ADMIN`, `SALES_REP`, `ONBOARDING_MANAGER`, `ADVISOR`, `CLIENT`.
 

@@ -49,14 +49,6 @@ export const internalNav: NavItem[] = [
     primaryTab: true,
   },
   {
-    href: "/(staff)/(tabs)/notificaciones",
-    webHref: "/notificaciones",
-    labelKey: "nav.notifications",
-    icon: "notifications-outline",
-    permission: null,
-    primaryTab: true,
-  },
-  {
     href: "/(staff)/(tabs)/calendario",
     webHref: "/calendario",
     labelKey: "nav.calendar",

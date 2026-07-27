@@ -7,6 +7,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/features/auth/AuthContext";
+import { NotificationsProvider } from "@/features/notifications/NotificationsContext";
 import { colors } from "@/theme/tokens";
 
 export default function RootLayout() {
@@ -15,14 +16,16 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <LanguageProvider>
           <AuthProvider>
-            <StatusBar style="dark" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.cream },
-                animation: "fade",
-              }}
-            />
+            <NotificationsProvider>
+              <StatusBar style="dark" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.cream },
+                  animation: "fade",
+                }}
+              />
+            </NotificationsProvider>
           </AuthProvider>
         </LanguageProvider>
       </SafeAreaProvider>

@@ -22,7 +22,7 @@ npx expo start          # tras cambiar .env: npx expo start -c
 
 | Variable | Uso |
 |----------|-----|
-| `EXPO_PUBLIC_API_URL` | Base API **con** `/api/v1` |
+| `EXPO_PUBLIC_API_URL` | Base API **con** `/api/v1` (fallback). En dispositivo físico, si Expo va por LAN, la app usa la **misma IP que Metro** automáticamente |
 
 Defaults (`src/lib/api-config.ts`): iOS/web → `localhost:8000`; Android emulador → `10.0.2.2:8000`.  
 Dispositivo físico: IP LAN del PC + backend con `--host 0.0.0.0`.
@@ -62,7 +62,8 @@ src/
 | Chatbot | solo CLIENT — `FloatingChatWidget` + `useChatbot` |
 | Documentos | `document-requirements.ts` + `UploadSourceSheet` / cámara-galería-archivos |
 | i18n | `expo-localization`: `es`/`en` del teléfono; re-sync al volver a foreground. Sin switcher ES/EN |
-| Boards | `KanbanBoard` + `CardDetailModal`; suprime gesto atrás horizontal |
+| Boards | `KanbanBoard` + `CardDetailModal`; menciones `@` (asesor) en comentarios; suprime gesto atrás horizontal |
+| Notificaciones | Campana + SSE; banner nativo local al llegar evento (también en Expo Go); push remoto Expo solo fuera de Expo Go (dev/prod build) |
 
 ## API
 

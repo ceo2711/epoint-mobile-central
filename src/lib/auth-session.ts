@@ -9,8 +9,6 @@ import { getApiBaseUrl } from "@/lib/api-config";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/api-error";
 import type { User } from "@/types/api";
 
-const API_URL = getApiBaseUrl();
-
 const RESTORE_MAX_ATTEMPTS = 6;
 const RESTORE_RETRY_MS = 1000;
 
@@ -37,7 +35,7 @@ export async function refreshAccessToken(): Promise<string | null> {
   if (!refreshInFlight) {
     refreshInFlight = (async () => {
       try {
-        const response = await fetch(`${API_URL}/auth/refresh`, {
+        const response = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refresh_token: refreshToken }),
@@ -62,7 +60,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 async function fetchCurrentUser(token: string): Promise<User> {
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/auth/me`, {
+    response = await fetch(`${getApiBaseUrl()}/auth/me`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -135,7 +133,7 @@ export async function revokeSession(): Promise<void> {
   if (!refreshToken || !accessToken) return;
 
   try {
-    await fetch(`${API_URL}/auth/logout`, {
+    await fetch(`${getApiBaseUrl()}/auth/logout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

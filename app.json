@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.epoint.crm",
       "infoPlist": {
         "NSCameraUsageDescription": "Epoint necesita acceso a la cámara para fotografiar documentos.",
-        "NSPhotoLibraryUsageDescription": "Epoint necesita acceso a tu galería para subir documentos."
+        "NSPhotoLibraryUsageDescription": "Epoint necesita acceso a tu galería para subir documentos.",
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -24,11 +25,15 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.epoint.crm",
+      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
@@ -37,6 +42,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       "expo-secure-store",
       "expo-font",
       "expo-web-browser",
@@ -47,10 +53,25 @@
           "cameraPermission": "Epoint necesita acceso a la cámara para fotografiar documentos."
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#3d6b45",
+          "defaultChannel": "epoint-default"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "19401c1b-8557-4fb4-8079-8bc5cf916b00"
+      }
+    },
+    "owner": "alexisguanique"
   }
 }

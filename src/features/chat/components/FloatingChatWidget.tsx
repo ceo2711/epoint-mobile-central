@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Easing,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   NativeScrollEvent,
@@ -18,6 +20,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTranslation } from "@/contexts/LanguageContext";
@@ -25,18 +28,22 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { MarkdownBody } from "@/features/boards/components/MarkdownBody";
 import { ChatDocumentTypePanel } from "./ChatDocumentTypePanel";
 import { useChatbot } from "@/features/chat/hooks/useChatbot";
-import { CHAT_MESSAGE_MAX_LENGTH, type ChatMessage } from "@/features/chat/types";
+import { CHAT_MESSAGE_MAX_LENGTH, type ChatConversationSummary, type ChatMessage } from "@/features/chat/types";
 import { UploadSourceSheet } from "@/features/documents/UploadSourceSheet";
 import {
   pickUploadFile,
   waitForModalDismiss,
   type UploadSource,
 } from "@/features/documents/pickUploadSource";
+import { SwipeToDeleteRow } from "@/features/notifications/SwipeToDeleteRow";
+import { getUserFacingErrorMessage } from "@/lib/api";
 import { colors, radii } from "@/theme/tokens";
 
 const SCREEN = Dimensions.get("window");
 const PANEL_WIDTH = Math.min(SCREEN.width - 24, 380);
 const PANEL_HEIGHT = Math.min(SCREEN.height * 0.72, 560);
+/** Android: un poco más bajo para que no roce el borde superior. */
+const ANDROID_PANEL_HEIGHT = Math.min(SCREEN.height * 0.56, 440);
 
 const CLIENT_SUGGESTIONS = [
   "chat.suggestionClientData",
@@ -76,6 +83,8 @@ export function FloatingChatWidget() {
     loadConversations,
     startNewConversation,
     selectConversation,
+    deleteConversation,
+    renameConversation,
     stagedUpload,
   } = useChatbot(token, locale, {
     userId: user?.id ?? null,
@@ -91,6 +100,16 @@ export function FloatingChatWidget() {
   const [draft, setDraft] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [unseenCount, setUnseenCount] = useState(0);
+  const [renaming, setRenaming] = useState<ChatConversationSummary | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  /** Android: teclado abierto — usamos screenY para limitar la altura del panel. */
+  const [androidKeyboard, setAndroidKeyboard] = useState<{
+    open: boolean;
+    /** Y en pantalla del borde superior del teclado */
+    topY: number;
+  }>({ open: false, topY: 0 });
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const nearBottomRef = useRef(true);
   const stickToBottomRef = useRef(true);
@@ -142,6 +161,29 @@ export function FloatingChatWidget() {
     setUnseenCount(0);
     void loadConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open is the intentional trigger
+  }, [open]);
+
+  // Android (resize): la ventana ya resta el teclado. Solo quitamos el offset del FAB
+  // para acercar el composer; NUNCA sumar keyboardHeight (eso manda el panel fuera de pantalla).
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const showSub = Keyboard.addListener("keyboardDidShow", (event) => {
+      setAndroidKeyboard({
+        open: true,
+        topY: event.endCoordinates.screenY,
+      });
+    });
+    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
+      setAndroidKeyboard({ open: false, topY: 0 });
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) setAndroidKeyboard({ open: false, topY: 0 });
   }, [open]);
 
   useEffect(() => {
@@ -207,6 +249,52 @@ export function FloatingChatWidget() {
     void loadConversations();
   }
 
+  function openRename(item: ChatConversationSummary) {
+    setRenaming(item);
+    setRenameDraft(item.title);
+  }
+
+  function closeRename() {
+    if (renameSaving) return;
+    setRenaming(null);
+    setRenameDraft("");
+  }
+
+  async function saveRename() {
+    if (!renaming || renameSaving) return;
+    const next = renameDraft.trim();
+    if (!next) {
+      Alert.alert(uiT("chat.renameConversation"), uiT("chat.renameEmpty"));
+      return;
+    }
+    setRenameSaving(true);
+    try {
+      await renameConversation(renaming.id, next);
+      setRenaming(null);
+      setRenameDraft("");
+    } catch (err) {
+      Alert.alert(
+        uiT("chat.renameConversation"),
+        getUserFacingErrorMessage(err, uiT("chat.renameError")),
+      );
+    } finally {
+      setRenameSaving(false);
+    }
+  }
+
+  function handleDeleteConversation(id: number) {
+    if (deletingId != null) return;
+    setDeletingId(id);
+    void deleteConversation(id)
+      .catch((err) => {
+        Alert.alert(
+          uiT("chat.conversationsTitle"),
+          getUserFacingErrorMessage(err, uiT("chat.deleteConversationError")),
+        );
+      })
+      .finally(() => setDeletingId(null));
+  }
+
   function handleMessagesScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const distanceFromBottom =
@@ -243,6 +331,27 @@ export function FloatingChatWidget() {
   }
 
   const fabBottom = Math.max(insets.bottom, 12) + 8;
+  // iOS: KeyboardAvoidingView. Android: con teclado solo bajamos el panel (sin sumar kb height).
+  const panelBottom =
+    Platform.OS === "android" && androidKeyboard.open ? 8 : fabBottom + 80;
+  const topSafe = Math.max(insets.top, 8);
+  const basePanelHeight =
+    Platform.OS === "android" ? ANDROID_PANEL_HEIGHT : PANEL_HEIGHT;
+  // En Android el alto fijo del panel se come la zona visible sobre el teclado:
+  // limitamos con screenY del teclado para que no se corte arriba.
+  const panelMaxHeight =
+    Platform.OS === "android" && androidKeyboard.open && androidKeyboard.topY > 0
+      ? Math.max(
+          220,
+          Math.min(
+            basePanelHeight,
+            androidKeyboard.topY - topSafe - panelBottom - 48,
+          ),
+        )
+      : Math.min(
+          basePanelHeight,
+          Dimensions.get("window").height - panelBottom - topSafe,
+        );
 
   // La nube crece desde la esquina del botón flotante.
   const panelAnimStyle = {
@@ -320,6 +429,7 @@ export function FloatingChatWidget() {
         onRequestClose={() => setOpen(false)}
       >
         <View style={styles.modalRoot}>
+          <GestureHandlerRootView style={styles.modalRoot}>
           <Animated.View style={[styles.backdrop, { opacity: anim }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setOpen(false)} />
           </Animated.View>
@@ -328,8 +438,9 @@ export function FloatingChatWidget() {
             style={[
               styles.panelWrap,
               {
-                bottom: fabBottom + 80,
+                bottom: panelBottom,
                 right: 12,
+                height: panelMaxHeight,
                 paddingBottom: 0,
               },
             ]}
@@ -423,29 +534,37 @@ export function FloatingChatWidget() {
                         </View>
                       }
                       renderItem={({ item }) => (
-                        <View style={styles.convCard}>
-                          <Pressable
-                            onPress={() => void handleSelectConversation(item.id)}
-                            style={({ pressed }) => [
-                              styles.convItem,
-                              pressed && styles.convItemPressed,
-                            ]}
-                          >
-                            <View style={styles.convAccent} />
-                            <View style={styles.convBody}>
-                              <Text style={styles.convTitle} numberOfLines={2}>
-                                {item.title}
-                              </Text>
-                              <Text style={styles.convMeta}>
-                                {formatConversationDate(item.updated_at, locale)}
-                                {" · "}
-                                {uiT("chat.conversationMessages", {
-                                  count: item.message_count,
-                                })}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        </View>
+                        <SwipeToDeleteRow
+                          disabled={deletingId === item.id}
+                          onDelete={() => handleDeleteConversation(item.id)}
+                          onEdit={() => openRename(item)}
+                          editLabel={uiT("chat.editConversation")}
+                          deleteLabel={uiT("chat.deleteConversation")}
+                        >
+                          <View style={styles.convCard}>
+                            <Pressable
+                              onPress={() => void handleSelectConversation(item.id)}
+                              style={({ pressed }) => [
+                                styles.convItem,
+                                pressed && styles.convItemPressed,
+                              ]}
+                            >
+                              <View style={styles.convAccent} />
+                              <View style={styles.convBody}>
+                                <Text style={styles.convTitle} numberOfLines={2}>
+                                  {item.title}
+                                </Text>
+                                <Text style={styles.convMeta}>
+                                  {formatConversationDate(item.updated_at, locale)}
+                                  {" · "}
+                                  {uiT("chat.conversationMessages", {
+                                    count: item.message_count,
+                                  })}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          </View>
+                        </SwipeToDeleteRow>
                       )}
                     />
                   )}
@@ -625,6 +744,53 @@ export function FloatingChatWidget() {
               void handlePickSource(source);
             }}
           />
+
+          {renaming ? (
+            <View style={styles.renameRoot} pointerEvents="box-none">
+              <Pressable style={styles.renameBackdrop} onPress={closeRename} />
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={styles.renameWrap}
+              >
+                <View style={styles.renameCard}>
+                  <Text style={styles.renameTitle}>{uiT("chat.renameConversation")}</Text>
+                  <TextInput
+                    value={renameDraft}
+                    onChangeText={(text) => setRenameDraft(text.slice(0, 120))}
+                    placeholder={uiT("chat.renamePlaceholder")}
+                    placeholderTextColor={colors.brownMuted}
+                    autoFocus
+                    maxLength={120}
+                    editable={!renameSaving}
+                    style={styles.renameInput}
+                    returnKeyType="done"
+                    onSubmitEditing={() => void saveRename()}
+                  />
+                  <View style={styles.renameActions}>
+                    <Pressable
+                      disabled={renameSaving}
+                      onPress={closeRename}
+                      style={styles.renameCancel}
+                    >
+                      <Text style={styles.renameCancelText}>{uiT("common.cancel")}</Text>
+                    </Pressable>
+                    <Pressable
+                      disabled={renameSaving}
+                      onPress={() => void saveRename()}
+                      style={[styles.renameSave, renameSaving && styles.renameSaveDisabled]}
+                    >
+                      {renameSaving ? (
+                        <ActivityIndicator size="small" color={colors.white} />
+                      ) : (
+                        <Text style={styles.renameSaveText}>{uiT("chat.renameSave")}</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              </KeyboardAvoidingView>
+            </View>
+          ) : null}
+          </GestureHandlerRootView>
         </View>
       </Modal>
     </>
@@ -804,7 +970,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   convCard: {
-    marginBottom: 12,
     borderRadius: 14,
     borderWidth: 2,
     borderColor: "#3d6b45",
@@ -1041,5 +1206,72 @@ const styles = StyleSheet.create({
   newLinkText: {
     fontSize: 12,
     color: colors.soft,
+  },
+  renameRoot: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    zIndex: 30,
+  },
+  renameBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  renameWrap: {
+    zIndex: 1,
+  },
+  renameCard: {
+    backgroundColor: colors.cream,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 16,
+    gap: 12,
+  },
+  renameTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.brown,
+  },
+  renameInput: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.control,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: colors.ink,
+    backgroundColor: colors.white,
+  },
+  renameActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 10,
+  },
+  renameCancel: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  renameCancelText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.soft,
+  },
+  renameSave: {
+    backgroundColor: colors.brand,
+    borderRadius: radii.control,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    minWidth: 88,
+    alignItems: "center",
+  },
+  renameSaveDisabled: {
+    opacity: 0.6,
+  },
+  renameSaveText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.white,
   },
 });

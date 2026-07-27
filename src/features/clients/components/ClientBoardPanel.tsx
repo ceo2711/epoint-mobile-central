@@ -10,13 +10,16 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { CardDetailModal } from "@/features/boards/components/CardDetailModal";
 import { KanbanBoard } from "@/features/boards/components/KanbanBoard";
+import type { UploadFileAsset } from "@/features/documents/pickUploadSource";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type {
   Board,
   BoardCard,
   BoardCardLabel,
+  CardAttachment,
   CardComment,
 } from "@/types/api";
 import { colors } from "@/theme/tokens";
@@ -33,6 +36,15 @@ interface ClientBoardPanelProps {
   subtitle?: string;
 }
 
+function hasVerifyingAttachments(card: BoardCard | null): boolean {
+  if (!card) return false;
+  return card.attachments.some(
+    (att) =>
+      att.verification_status === "PENDIENTE" ||
+      att.verification_status === "EN_PROCESO",
+  );
+}
+
 export function ClientBoardPanel({
   clientId,
   token,
@@ -42,6 +54,7 @@ export function ClientBoardPanel({
   title,
   subtitle,
 }: ClientBoardPanelProps) {
+  const { t } = useTranslation();
   const [board, setBoard] = useState<Board | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,10 +62,14 @@ export function ClientBoardPanel({
   const [acting, setActing] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachMessage, setAttachMessage] = useState<string | null>(null);
+  const [attachError, setAttachError] = useState(false);
 
   const canCreateCards = canManage || isClientPortal;
   const canSetLabel = canManage;
   const canComment = canManage || isClientPortal;
+  const canAttach = canManage || isClientPortal;
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -97,12 +114,24 @@ export function ClientBoardPanel({
     return null;
   }, [lists, selectedCardId]);
 
+  useEffect(() => {
+    if (!hasVerifyingAttachments(selectedCard)) return;
+    const interval = setInterval(() => {
+      void load({ silent: true });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [selectedCard, load]);
+
   function openCard(card: BoardCard, listId: number) {
+    setAttachMessage(null);
+    setAttachError(false);
     setSelectedCardId(card.id);
     setSelectedListId(listId);
   }
 
   function closeCard() {
+    setAttachMessage(null);
+    setAttachError(false);
     setSelectedCardId(null);
     setSelectedListId(null);
   }
@@ -153,13 +182,25 @@ export function ClientBoardPanel({
     }
   }
 
-  async function addComment(cardId: number, body: string, isInternal: boolean) {
+  async function addComment(
+    cardId: number,
+    body: string,
+    isInternal: boolean,
+    files?: UploadFileAsset[],
+  ) {
     setActing(true);
     setError(null);
     try {
       const formData = new FormData();
       formData.append("body", body);
       formData.append("is_internal", isInternal ? "true" : "false");
+      for (const file of files ?? []) {
+        formData.append("files", {
+          uri: file.uri,
+          name: file.name,
+          type: file.mimeType,
+        } as unknown as Blob);
+      }
       await api.upload<CardComment>(
         `/boards/cards/${cardId}/comments`,
         formData,
@@ -168,8 +209,39 @@ export function ClientBoardPanel({
       await load({ silent: true });
     } catch (err) {
       setError(getUserFacingErrorMessage(err, "No se pudo agregar el comentario"));
+      throw err;
     } finally {
       setActing(false);
+    }
+  }
+
+  async function uploadAttachment(cardId: number, file: UploadFileAsset) {
+    setAttachMessage(null);
+    setAttachError(false);
+    setUploadingAttachment(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType,
+      } as unknown as Blob);
+      await api.upload<CardAttachment>(
+        `/boards/cards/${cardId}/attachments`,
+        formData,
+        token,
+      );
+      setAttachMessage(t("portalBoard.uploadSuccess"));
+      setAttachError(false);
+      await load({ silent: true });
+    } catch (err) {
+      setAttachMessage(
+        getUserFacingErrorMessage(err, t("portalBoard.uploadError")),
+      );
+      setAttachError(true);
+      throw err;
+    } finally {
+      setUploadingAttachment(false);
     }
   }
 
@@ -179,15 +251,22 @@ export function ClientBoardPanel({
       card={selectedCard}
       lists={lists}
       currentListId={selectedListId}
+      clientId={clientId}
+      token={token}
       canManage={canManage}
       canSetLabel={canSetLabel}
       canComment={canComment}
+      canAttach={canAttach}
       hideInternalComments={isClientPortal}
       acting={acting}
+      uploadingAttachment={uploadingAttachment}
+      attachMessage={attachMessage}
+      attachError={attachError}
       onClose={closeCard}
       onMove={canManage ? moveCard : undefined}
       onUpdateLabel={canSetLabel ? updateLabel : undefined}
       onAddComment={canComment ? addComment : undefined}
+      onUploadAttachment={canAttach ? uploadAttachment : undefined}
     />
   );
 
@@ -196,14 +275,14 @@ export function ClientBoardPanel({
       return (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.brand} />
-          <Text style={styles.muted}>Cargando tablero…</Text>
+          <Text style={styles.muted}>{t("portalBoard.loading")}</Text>
         </View>
       );
     }
     return (
-      <Card title={title ?? "Tablero"}>
+      <Card title={title ?? t("portalBoard.title")}>
         <ActivityIndicator color={colors.brand} />
-        <Text style={styles.muted}>Cargando tablero…</Text>
+        <Text style={styles.muted}>{t("portalBoard.loading")}</Text>
       </Card>
     );
   }
@@ -214,7 +293,7 @@ export function ClientBoardPanel({
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Text style={styles.muted}>
           {isClientPortal
-            ? "Cuando tu asesor active el onboarding, vas a ver las listas y tarjetas acá."
+            ? t("portalBoard.unavailableBody")
             : "El tablero aún no está disponible para este cliente."}
         </Text>
         <Button title="Reintentar" variant="secondary" fullWidth onPress={() => void load()} />
@@ -222,7 +301,7 @@ export function ClientBoardPanel({
     );
     if (scrollable) return <View style={styles.portalPad}>{empty}{detail}</View>;
     return (
-      <Card title={title ?? "Tablero"}>
+      <Card title={title ?? t("portalBoard.title")}>
         {empty}
         {detail}
       </Card>
@@ -235,12 +314,12 @@ export function ClientBoardPanel({
       {!isClientPortal ? (
         <Text style={styles.hint}>
           Deslizá horizontalmente entre columnas. Tocá una tarjeta para ver detalle,
-          moverla o comentar.
+          adjuntar archivos, moverla o comentar.
         </Text>
       ) : (
         <Text style={styles.hint}>
           Deslizá entre columnas para seguir tu onboarding. Tocá una tarjeta para ver
-          el detalle.
+          el detalle y adjuntar archivos.
         </Text>
       )}
       <KanbanBoard

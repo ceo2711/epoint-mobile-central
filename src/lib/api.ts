@@ -2,8 +2,15 @@ import { notifyUnauthorized } from "@/lib/auth-unauthorized";
 import { refreshAccessToken } from "@/lib/auth-session";
 import { ApiError, NETWORK_ERROR_MESSAGE } from "@/lib/api-error";
 import { getApiBaseUrl } from "@/lib/api-config";
+import { Platform } from "react-native";
 
-const API_URL = getApiBaseUrl();
+/** Resolver en cada request: Constants/hostUri puede no estar listo al import. */
+function apiUrl(): string {
+  return getApiBaseUrl();
+}
+
+/** Evita spinners eternos si la IP LAN cambió o el backend no responde. */
+const DEFAULT_TIMEOUT_MS = 15_000;
 
 export { ApiError, isUnauthorizedError } from "@/lib/api-error";
 
@@ -11,6 +18,7 @@ type RequestOptions = RequestInit & {
   token?: string | null;
   skipAuthRefresh?: boolean;
   silentHttpErrors?: boolean;
+  timeoutMs?: number;
 };
 
 let activeMerchantIdProvider: () => number | null = () => null;
@@ -24,8 +32,85 @@ function merchantHeaders(): Record<string, string> {
   return merchantId ? { "X-Merchant-Id": String(merchantId) } : {};
 }
 
-function throwNetworkError(): never {
+function throwNetworkError(cause?: unknown, url?: string): never {
+  if (__DEV__) {
+    const detail =
+      cause instanceof Error
+        ? cause.message
+        : cause != null
+          ? String(cause)
+          : "unknown";
+    console.warn(`[api] network fail → ${url ?? apiUrl()} | ${detail}`);
+  }
   throw new ApiError(0, NETWORK_ERROR_MESSAGE);
+}
+
+function mergeAbortSignals(
+  timeoutMs: number,
+  external?: AbortSignal | null,
+): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const onExternalAbort = () => controller.abort();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", onExternalAbort);
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      external?.removeEventListener("abort", onExternalAbort);
+    },
+  };
+}
+
+/**
+ * fetch con timeout. En Android, AbortSignal + fetch a veces falla raro;
+ * usamos Promise.race sin signal nativo.
+ */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  if (Platform.OS === "android") {
+    const { signal: external, ...rest } = init;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        fetch(url, rest),
+        new Promise<Response>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(new Error(`timeout after ${timeoutMs}ms`));
+          }, timeoutMs);
+          if (external) {
+            if (external.aborted) {
+              reject(new Error("aborted"));
+            } else {
+              external.addEventListener(
+                "abort",
+                () => reject(new Error("aborted")),
+                { once: true },
+              );
+            }
+          }
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  const { signal: externalSignal, ...rest } = init;
+  const { signal, cleanup } = mergeAbortSignals(timeoutMs, externalSignal);
+  try {
+    return await fetch(url, { ...rest, signal });
+  } finally {
+    cleanup();
+  }
 }
 
 async function request<T>(
@@ -33,22 +118,36 @@ async function request<T>(
   options: RequestOptions = {},
   isRetry = false,
 ): Promise<T> {
-  const { token, skipAuthRefresh, silentHttpErrors: _silent, headers, ...rest } = options;
+  const {
+    token,
+    skipAuthRefresh,
+    silentHttpErrors: _silent,
+    headers,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    signal: externalSignal,
+    ...rest
+  } = options;
   const method = rest.method ?? "GET";
+  const url = `${apiUrl()}${path}`;
 
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
-      ...rest,
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...merchantHeaders(),
-        ...headers,
+    response = await fetchWithTimeout(
+      url,
+      {
+        ...rest,
+        signal: externalSignal ?? undefined,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...merchantHeaders(),
+          ...headers,
+        },
       },
-    });
-  } catch {
-    throwNetworkError();
+      timeoutMs,
+    );
+  } catch (cause) {
+    throwNetworkError(cause, url);
   }
 
   if (!response.ok) {
@@ -93,17 +192,22 @@ async function requestBlob(
   token?: string | null,
   isRetry = false,
 ): Promise<BlobResponse> {
+  const url = `${apiUrl()}${path}`;
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
-      method: "GET",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...merchantHeaders(),
+    response = await fetchWithTimeout(
+      url,
+      {
+        method: "GET",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...merchantHeaders(),
+        },
       },
-    });
-  } catch {
-    throwNetworkError();
+      DEFAULT_TIMEOUT_MS,
+    );
+  } catch (cause) {
+    throwNetworkError(cause, url);
   }
 
   if (!response.ok) {
@@ -143,18 +247,23 @@ async function uploadRequest<T>(
   token?: string | null,
   isRetry = false,
 ): Promise<T> {
+  const url = `${apiUrl()}${path}`;
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
-      method: "POST",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...merchantHeaders(),
+    response = await fetchWithTimeout(
+      url,
+      {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...merchantHeaders(),
+        },
+        body: formData,
       },
-      body: formData,
-    });
-  } catch {
-    throwNetworkError();
+      60_000,
+    );
+  } catch (cause) {
+    throwNetworkError(cause, url);
   }
 
   if (!response.ok) {
@@ -215,5 +324,5 @@ export const api = {
     request<T>(path, { method: "DELETE", token }),
 };
 
-export { API_URL };
+export { getApiBaseUrl } from "@/lib/api-config";
 export { getUserFacingErrorMessage, NETWORK_ERROR_MESSAGE } from "@/lib/api-error";

@@ -351,6 +351,43 @@ export function useChatbot(
     [token, t, defaultLocale],
   );
 
+  const deleteConversation = useCallback(
+    async (id: number) => {
+      if (!token) return;
+      const previous = conversations;
+      setConversations((current) => current.filter((item) => item.id !== id));
+      if (conversationIdRef.current === id) {
+        resetChat();
+      }
+      try {
+        await api.delete(`/chatbot/conversations/${id}`, token);
+      } catch (err) {
+        setConversations(previous);
+        throw err;
+      }
+    },
+    [token, conversations, resetChat],
+  );
+
+  const renameConversation = useCallback(
+    async (id: number, title: string) => {
+      if (!token) return;
+      const trimmed = title.trim();
+      if (!trimmed) {
+        throw new Error(t("chat.renameEmpty"));
+      }
+      const updated = await api.patch<ChatConversationSummary>(
+        `/chatbot/conversations/${id}`,
+        { title: trimmed },
+        token,
+      );
+      setConversations((current) =>
+        current.map((item) => (item.id === id ? { ...item, ...updated } : item)),
+      );
+    },
+    [token, t],
+  );
+
   return {
     messages,
     loading,
@@ -367,6 +404,8 @@ export function useChatbot(
     loadConversations,
     startNewConversation,
     selectConversation,
+    deleteConversation,
+    renameConversation,
     chatLocale,
     stagedUpload,
     chatT,

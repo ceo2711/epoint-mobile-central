@@ -17,7 +17,8 @@ import { ScreenState } from "@/components/ui/ScreenState";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { AuthGlassShell } from "@/features/auth/AuthGlassShell";
 import { useAuth, mustForcePasswordChange } from "@/features/auth/AuthContext";
-import { getUserFacingErrorMessage } from "@/lib/api";
+import { getUserFacingErrorMessage, ApiError } from "@/lib/api";
+import { getApiDebugInfo } from "@/lib/api-config";
 import { getDefaultAppPath } from "@/lib/appNavigation";
 import { colors } from "@/theme/tokens";
 
@@ -59,7 +60,17 @@ export default function LoginScreen() {
         });
       }
     } catch (err) {
-      setError(getUserFacingErrorMessage(err, t("common.loginError")));
+      const fallback =
+        err instanceof ApiError && err.status === 0
+          ? t("common.connectionError")
+          : t("common.loginError");
+      let message = getUserFacingErrorMessage(err, fallback);
+      if (__DEV__ && err instanceof ApiError && err.status === 0) {
+        const info = getApiDebugInfo();
+        console.warn("[login] api debug", info);
+        message = `${message}\n(${String(info.resolved)})`;
+      }
+      setError(message);
     } finally {
       setSubmitting(false);
     }
