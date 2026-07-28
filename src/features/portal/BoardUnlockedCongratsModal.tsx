@@ -6,15 +6,20 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import { colors, radii } from "@/theme/tokens";
 
 interface BoardUnlockedCongratsModalProps {
+  advisorName?: string | null;
   onClose: () => void;
   onGoToBoard: () => void;
 }
 
 export function BoardUnlockedCongratsModal({
+  advisorName,
   onClose,
   onGoToBoard,
 }: BoardUnlockedCongratsModalProps) {
   const { t } = useTranslation();
+  const body = advisorName
+    ? t("portalBoardUnlock.bodyWithAdvisor", { name: advisorName })
+    : t("portalBoardUnlock.body");
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -28,7 +33,7 @@ export function BoardUnlockedCongratsModal({
           </View>
 
           <Text style={styles.headline}>{t("portalBoardUnlock.headline")}</Text>
-          <Text style={styles.body}>{t("portalBoardUnlock.body")}</Text>
+          <Text style={styles.body}>{body}</Text>
 
           <View style={styles.actions}>
             <Button title={t("common.close")} variant="secondary" onPress={onClose} fullWidth />

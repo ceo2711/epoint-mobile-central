@@ -83,6 +83,21 @@ export const en: Messages = {
     verifySubmit: "Continue",
     verifyError: "Invalid code",
   },
+  twoFactorRequired: {
+    title: "Set up two-factor authentication",
+    subtitle: "Required to use Epoint",
+    explanation:
+      "To protect your account, you must set up two-factor authentication with Microsoft Authenticator, Google Authenticator, or another compatible app. You cannot use the app until this is done.",
+    start: "Set up now",
+    settingUp: "Preparing…",
+    scanHint: "Open your authenticator app or enter the key manually, then confirm with the 6-digit code.",
+    openApp: "Open authenticator app",
+    openAppError: "Could not open the authenticator app. Use the manual key.",
+    manualEntry: "Manual key",
+    confirm: "Confirm and continue",
+    confirming: "Confirming…",
+    error: "Could not set up two-factor authentication",
+  },
   account: {
     title: "My account",
     portalTitle: "Account",
@@ -130,6 +145,8 @@ export const en: Messages = {
     subtitle: "Your initial process is complete",
     headline: "You successfully submitted your data and documents",
     body: "An advisor has been assigned and your board is now unlocked so you can manage the entire process in one place.",
+    bodyWithAdvisor:
+      "Your assigned advisor is {name}. Your board is unlocked so you can manage the whole process in one place.",
     goToBoard: "Go to my board",
   },
   portalData: {
@@ -179,6 +196,10 @@ export const en: Messages = {
     camera: "Camera",
     gallery: "Gallery",
     files: "Files",
+    tapToViewImage: "Tap to view larger",
+    tapToViewPdf: "Tap to view PDF",
+    pdfLoading: "Loading PDF…",
+    pdfLoadError: "Could not load the PDF",
     sections: {
       ssn: {
         title: "SSN card",

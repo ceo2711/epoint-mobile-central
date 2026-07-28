@@ -15,6 +15,7 @@ import { ScreenState } from "@/components/ui/ScreenState";
 import { Section } from "@/components/ui/Section";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { usePortalBoardUnlock } from "@/features/portal/PortalBoardUnlockContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { Client } from "@/types/api";
 import { colors } from "@/theme/tokens";
@@ -39,6 +40,7 @@ function currentYear() {
 
 export default function PortalDatosScreen() {
   const { token, isLoading: authLoading } = useAuth();
+  const unlockCtx = usePortalBoardUnlock();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -201,6 +203,7 @@ export default function PortalDatosScreen() {
       setSsn("");
       await loadStoredSsn(updated.has_ssn);
       setMessage(t("portalData.dataSaved"));
+      await unlockCtx?.reload();
     } catch (err) {
       setError(getUserFacingErrorMessage(err, t("portalData.saveError")));
     } finally {

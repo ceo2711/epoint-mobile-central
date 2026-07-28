@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePathname, useRouter } from "expo-router";
 
@@ -42,6 +43,14 @@ async function markCongratsSeen(clientId: number) {
     await AsyncStorage.setItem(storageKey(clientId), "1");
   } catch {
     /* ignore */
+  }
+}
+
+async function hasCongratsSeen(clientId: number) {
+  try {
+    return (await AsyncStorage.getItem(storageKey(clientId))) === "1";
+  } catch {
+    return false;
   }
 }
 
@@ -81,6 +90,16 @@ export function PortalBoardUnlockProvider({ children }: { children: ReactNode })
     void reload();
   }, [isClient, reload]);
 
+  // Al volver a foreground, refrescar por si la verificación/promoción terminó en background.
+  useEffect(() => {
+    if (!isClient) return;
+    const onChange = (state: AppStateStatus) => {
+      if (state === "active") void reload();
+    };
+    const sub = AppState.addEventListener("change", onChange);
+    return () => sub.remove();
+  }, [isClient, reload]);
+
   const boardUnlocked = Boolean(client?.board_unlocked);
   const clientId = client?.id;
 
@@ -98,19 +117,32 @@ export function PortalBoardUnlockProvider({ children }: { children: ReactNode })
 
   useEffect(() => {
     if (!clientId) return;
+    let cancelled = false;
 
-    const prev = prevUnlockedRef.current;
+    void (async () => {
+      const prev = prevUnlockedRef.current;
 
-    if (prev === true && !boardUnlocked) {
-      void clearCongratsSeen(clientId);
-      setShowCongrats(false);
-    }
+      if (prev === true && !boardUnlocked) {
+        await clearCongratsSeen(clientId);
+        if (!cancelled) setShowCongrats(false);
+        prevUnlockedRef.current = boardUnlocked;
+        return;
+      }
 
-    if (prev === false && boardUnlocked) {
-      setShowCongrats(true);
-    }
+      if (boardUnlocked) {
+        const seen = await hasCongratsSeen(clientId);
+        // Transición live false→true, o cold start ya desbloqueado sin haber visto el modal.
+        if (!seen && (prev === false || prev === null)) {
+          if (!cancelled) setShowCongrats(true);
+        }
+      }
 
-    prevUnlockedRef.current = boardUnlocked;
+      prevUnlockedRef.current = boardUnlocked;
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [clientId, boardUnlocked]);
 
   const dismiss = useCallback(() => {
@@ -123,6 +155,13 @@ export function PortalBoardUnlockProvider({ children }: { children: ReactNode })
     setShowCongrats(false);
     router.push("/(portal)/(tabs)/tablero" as never);
   }, [clientId, router]);
+
+  const advisorName = useMemo(() => {
+    const advisor = client?.advisor;
+    if (!advisor) return null;
+    const name = `${advisor.first_name ?? ""} ${advisor.last_name ?? ""}`.trim();
+    return name || null;
+  }, [client?.advisor]);
 
   const value = useMemo(
     () => ({
@@ -138,7 +177,11 @@ export function PortalBoardUnlockProvider({ children }: { children: ReactNode })
     <PortalBoardUnlockContext.Provider value={value}>
       {children}
       {showCongrats ? (
-        <BoardUnlockedCongratsModal onClose={dismiss} onGoToBoard={goToBoard} />
+        <BoardUnlockedCongratsModal
+          advisorName={advisorName}
+          onClose={dismiss}
+          onGoToBoard={goToBoard}
+        />
       ) : null}
     </PortalBoardUnlockContext.Provider>
   );

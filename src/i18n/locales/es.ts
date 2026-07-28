@@ -81,6 +81,21 @@ export const es = {
     verifySubmit: "Continuar",
     verifyError: "Código inválido",
   },
+  twoFactorRequired: {
+    title: "Configurá el doble factor",
+    subtitle: "Es obligatorio para usar Epoint",
+    explanation:
+      "Para proteger tu cuenta, tenés que configurar la autenticación en dos pasos con Microsoft Authenticator, Google Authenticator u otra app compatible. No vas a poder usar la app hasta completarlo.",
+    start: "Configurar ahora",
+    settingUp: "Preparando…",
+    scanHint: "Abrí tu app autenticadora o ingresá la clave manualmente, y después confirmá con el código de 6 dígitos.",
+    openApp: "Abrir app autenticadora",
+    openAppError: "No se pudo abrir la app autenticadora. Usá la clave manual.",
+    manualEntry: "Clave manual",
+    confirm: "Confirmar y continuar",
+    confirming: "Confirmando…",
+    error: "No se pudo configurar el doble factor",
+  },
   account: {
     title: "Mi cuenta",
     portalTitle: "Cuenta",
@@ -128,6 +143,8 @@ export const es = {
     subtitle: "Tu proceso inicial está completo",
     headline: "Cargaste tus datos y documentos con éxito",
     body: "Ya tenés asignado un asesor y habilitamos tu tablero para que gestiones todo el proceso desde un solo lugar.",
+    bodyWithAdvisor:
+      "Tu asesor asignado es {name}. Ya habilitamos tu tablero para que gestiones todo el proceso desde un solo lugar.",
     goToBoard: "Ir a mi tablero",
   },
   portalData: {
@@ -177,6 +194,10 @@ export const es = {
     camera: "Cámara",
     gallery: "Galería",
     files: "Archivos",
+    tapToViewImage: "Tocá para ver en grande",
+    tapToViewPdf: "Tocá para ver el PDF",
+    pdfLoading: "Cargando PDF…",
+    pdfLoadError: "No se pudo cargar el PDF",
     sections: {
       ssn: {
         title: "Tarjeta SSN",

@@ -26,6 +26,7 @@ import {
 } from "@/components/shell/BackGestureContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { MandatoryTwoFactorModal } from "@/features/auth/MandatoryTwoFactorModal";
 import { FloatingChatWidget } from "@/features/chat/components/FloatingChatWidget";
 import { NotificationBell } from "@/features/notifications/NotificationBell";
 import { usePortalBoardUnlocked } from "@/features/portal/PortalBoardUnlockContext";
@@ -43,9 +44,9 @@ const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.82, 340);
 const DRAWER_HIDDEN_X = -DRAWER_WIDTH;
 const OPEN_MS = 280;
 const CLOSE_MS = 240;
-const BACK_EDGE_WIDTH = 28;
-const BACK_DISTANCE = 72;
-const BACK_VELOCITY = 650;
+const BACK_EDGE_WIDTH = 24;
+const BACK_DISTANCE = 88;
+const BACK_VELOCITY = 800;
 
 /** Strip Expo Router groups: /(portal)/(tabs)/cuenta -> /cuenta */
 function normalizePath(path: string): string {
@@ -233,8 +234,8 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
     () =>
       Gesture.Pan()
         .enabled(customBackEnabled)
-        .activeOffsetX(18)
-        .failOffsetY([-24, 24])
+        .activeOffsetX(28)
+        .failOffsetY([-20, 20])
         .onEnd((event) => {
           const shouldGoBack =
             event.translationX > BACK_DISTANCE || event.velocityX > BACK_VELOCITY;
@@ -301,6 +302,7 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
       </View>
 
       {user?.role.code === "CLIENT" ? <FloatingChatWidget /> : null}
+      <MandatoryTwoFactorModal />
 
       <Modal
         visible={modalVisible}

@@ -1,7 +1,21 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
+import * as FileSystem from "expo-file-system/legacy";
 
+import { useTranslation } from "@/contexts/LanguageContext";
 import { api } from "@/lib/api";
 import type { DocumentBrief, LocalizedStringList } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
@@ -37,15 +51,75 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+function buildPdfViewerHtml(base64: string): string {
+  // pdf.js en WebView: funciona en iOS y Android (el WebView de Android no renderiza PDF nativo).
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=4, user-scalable=yes" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #111; min-height: 100%; }
+    #status { color: #f5f5f5; font: 14px -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; text-align: center; }
+    #viewer { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 12px; }
+    canvas { width: 100% !important; height: auto !important; background: #fff; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div id="status">Cargando PDF…</div>
+  <div id="viewer"></div>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    const statusEl = document.getElementById("status");
+    const viewer = document.getElementById("viewer");
+    try {
+      const raw = atob(${JSON.stringify(base64)});
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      pdfjsLib.getDocument({ data: bytes }).promise.then(async (pdf) => {
+        statusEl.style.display = "none";
+        const maxPages = Math.min(pdf.numPages, 40);
+        for (let i = 1; i <= maxPages; i++) {
+          const page = await pdf.getPage(i);
+          const unscaled = page.getViewport({ scale: 1 });
+          const scale = Math.min(2, (window.innerWidth - 24) / unscaled.width);
+          const viewport = page.getViewport({ scale: Math.max(1.1, scale) });
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          viewer.appendChild(canvas);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+        }
+      }).catch(function () {
+        statusEl.textContent = "No se pudo mostrar el PDF.";
+      });
+    } catch (e) {
+      statusEl.textContent = "No se pudo mostrar el PDF.";
+    }
+  </script>
+</body>
+</html>`;
+}
+
 interface DocumentPreviewCardProps {
   doc: DocumentBrief;
   token: string;
 }
 
 export function DocumentPreviewCard({ doc, token }: DocumentPreviewCardProps) {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [thumbUri, setThumbUri] = useState<string | null>(null);
   const [loadingThumb, setLoadingThumb] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [pdfFileUri, setPdfFileUri] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const rejectionMessages = pickLocalizedMessages(doc.rejection_reasons);
   const approvalMessages = pickLocalizedMessages(doc.approval_reasons);
@@ -60,6 +134,13 @@ export function DocumentPreviewCard({ doc, token }: DocumentPreviewCardProps) {
       : [];
   const showAsImage = isImageMime(doc.mime_type, doc.original_filename);
   const showAsPdf = isPdf(doc.mime_type, doc.original_filename);
+  const canPreview = showAsImage || showAsPdf;
+
+  useEffect(() => {
+    setPdfBase64(null);
+    setPdfFileUri(null);
+    setPreviewError(null);
+  }, [doc.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,13 +175,53 @@ export function DocumentPreviewCard({ doc, token }: DocumentPreviewCardProps) {
     };
   }, [doc.id, doc.download_url, doc.mime_type, doc.original_filename, showAsImage, token]);
 
+  const loadPdf = useCallback(async () => {
+    if (pdfBase64 || loadingPdf) return;
+    setLoadingPdf(true);
+    setPreviewError(null);
+    try {
+      const blob = await api.getBlob(`/documents/${doc.id}/content`, token);
+      const b64 = arrayBufferToBase64(blob.data);
+      setPdfBase64(b64);
+
+      const cacheDir = FileSystem.cacheDirectory;
+      if (cacheDir) {
+        const path = `${cacheDir}doc-${doc.id}.pdf`;
+        await FileSystem.writeAsStringAsync(path, b64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        setPdfFileUri(path);
+      }
+    } catch {
+      setPreviewError(t("portalDocs.pdfLoadError"));
+    } finally {
+      setLoadingPdf(false);
+    }
+  }, [doc.id, loadingPdf, pdfBase64, t, token]);
+
+  function openPreview() {
+    if (!canPreview) return;
+    setPreviewOpen(true);
+    if (showAsPdf) void loadPdf();
+  }
+
+  const pdfHtml = useMemo(
+    () => (pdfBase64 ? buildPdfViewerHtml(pdfBase64) : null),
+    [pdfBase64],
+  );
+
+  const modalHeight = Math.min(Dimensions.get("window").height * 0.82, 720);
+
   return (
     <View style={styles.wrap}>
       <Pressable
         style={styles.previewRow}
-        onPress={() => {
-          if (thumbUri) setPreviewOpen(true);
-        }}
+        onPress={openPreview}
+        disabled={!canPreview}
+        accessibilityRole="button"
+        accessibilityLabel={
+          showAsPdf ? t("portalDocs.tapToViewPdf") : t("portalDocs.tapToViewImage")
+        }
       >
         <View style={styles.thumb}>
           {loadingThumb ? (
@@ -122,8 +243,10 @@ export function DocumentPreviewCard({ doc, token }: DocumentPreviewCardProps) {
           <Text style={styles.filename} numberOfLines={2}>
             {doc.original_filename}
           </Text>
-          {thumbUri ? (
-            <Text style={styles.hint}>Tocá para ver en grande</Text>
+          {canPreview ? (
+            <Text style={styles.hint}>
+              {showAsPdf ? t("portalDocs.tapToViewPdf") : t("portalDocs.tapToViewImage")}
+            </Text>
           ) : null}
         </View>
       </Pressable>
@@ -163,14 +286,68 @@ export function DocumentPreviewCard({ doc, token }: DocumentPreviewCardProps) {
         animationType="fade"
         onRequestClose={() => setPreviewOpen(false)}
       >
-        <View style={styles.modalRoot}>
+        <View style={[styles.modalRoot, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}>
           <Pressable style={styles.modalBackdrop} onPress={() => setPreviewOpen(false)} />
-          <View style={styles.modalContent}>
-            {thumbUri ? (
+          <View style={[styles.modalContent, { maxHeight: modalHeight }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle} numberOfLines={1}>
+                {doc.original_filename}
+              </Text>
+              <Pressable
+                onPress={() => setPreviewOpen(false)}
+                hitSlop={12}
+                accessibilityLabel={t("common.close")}
+              >
+                <Ionicons name="close" size={24} color={colors.cream} />
+              </Pressable>
+            </View>
+
+            {showAsImage && thumbUri ? (
               <Image source={{ uri: thumbUri }} style={styles.fullImage} resizeMode="contain" />
             ) : null}
+
+            {showAsPdf ? (
+              <View style={[styles.pdfWrap, { height: modalHeight - 110 }]}>
+                {loadingPdf && !pdfHtml ? (
+                  <View style={styles.pdfLoading}>
+                    <ActivityIndicator color={colors.cream} size="large" />
+                    <Text style={styles.pdfLoadingText}>{t("portalDocs.pdfLoading")}</Text>
+                  </View>
+                ) : null}
+                {previewError ? (
+                  <View style={styles.pdfLoading}>
+                    <Text style={styles.pdfLoadingText}>{previewError}</Text>
+                  </View>
+                ) : null}
+                {pdfHtml ? (
+                  <WebView
+                    originWhitelist={["*"]}
+                    source={
+                      // iOS WebView renderiza PDF local nativo; Android usa pdf.js en HTML.
+                      Platform.OS === "ios" && pdfFileUri
+                        ? { uri: pdfFileUri }
+                        : { html: pdfHtml, baseUrl: "https://cdnjs.cloudflare.com" }
+                    }
+                    style={styles.webview}
+                    startInLoadingState
+                    renderLoading={() => (
+                      <View style={styles.pdfLoading}>
+                        <ActivityIndicator color={colors.cream} />
+                      </View>
+                    )}
+                    allowFileAccess
+                    allowUniversalAccessFromFileURLs
+                    mixedContentMode="always"
+                    javaScriptEnabled
+                    scalesPageToFit
+                    nestedScrollEnabled
+                  />
+                ) : null}
+              </View>
+            ) : null}
+
             <Pressable style={styles.closeBtn} onPress={() => setPreviewOpen(false)}>
-              <Text style={styles.closeText}>Cerrar</Text>
+              <Text style={styles.closeText}>{t("common.close")}</Text>
             </Pressable>
           </View>
         </View>
@@ -264,22 +441,56 @@ const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
     justifyContent: "center",
-    padding: 16,
+    paddingHorizontal: 12,
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.78)",
   },
   modalContent: {
     zIndex: 2,
-    maxHeight: "85%",
     borderRadius: radii.card,
     overflow: "hidden",
-    backgroundColor: colors.ink,
+    backgroundColor: "#141414",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: "#0d0d0d",
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.cream,
   },
   fullImage: {
     width: "100%",
     height: 420,
+  },
+  pdfWrap: {
+    width: "100%",
+    backgroundColor: "#111",
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: "#111",
+  },
+  pdfLoading: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#111",
+    zIndex: 1,
+  },
+  pdfLoadingText: {
+    color: colors.cream,
+    fontSize: 14,
   },
   closeBtn: {
     alignItems: "center",

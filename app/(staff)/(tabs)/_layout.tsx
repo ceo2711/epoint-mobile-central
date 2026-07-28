@@ -22,7 +22,8 @@ export default function StaffTabsLayout() {
           contentStyle: { backgroundColor: colors.cream },
           animation: "slide_from_right",
           gestureEnabled: true,
-          fullScreenGestureEnabled: true,
+          // Solo borde izquierdo (no swipe desde el centro de la pantalla).
+          fullScreenGestureEnabled: false,
           animationMatchesGesture: true,
         }}
       />

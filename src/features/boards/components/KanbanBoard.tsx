@@ -252,7 +252,7 @@ export function KanbanBoard({
     return () => {
       navigation.setOptions({
         gestureEnabled: true,
-        fullScreenGestureEnabled: true,
+        fullScreenGestureEnabled: false,
       });
     };
   }, [navigation]);
