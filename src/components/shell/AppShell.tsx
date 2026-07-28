@@ -28,6 +28,7 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { FloatingChatWidget } from "@/features/chat/components/FloatingChatWidget";
 import { NotificationBell } from "@/features/notifications/NotificationBell";
+import { usePortalBoardUnlocked } from "@/features/portal/PortalBoardUnlockContext";
 import { getAccessibleNavItems, type NavItem } from "@/lib/appNavigation";
 import { colors, radii } from "@/theme/tokens";
 
@@ -123,9 +124,13 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
   const slideAnim = useRef(new Animated.Value(DRAWER_HIDDEN_X)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
 
+  const boardUnlocked = usePortalBoardUnlocked();
   const navItems = useMemo(
-    () => getAccessibleNavItems(user, hasPermission),
-    [user, hasPermission],
+    () =>
+      getAccessibleNavItems(user, hasPermission, {
+        boardUnlocked: user?.role.code === "CLIENT" ? boardUnlocked : true,
+      }),
+    [user, hasPermission, boardUnlocked],
   );
 
   const onAccountScreen = isOnAccountScreen(pathname, accountHref);

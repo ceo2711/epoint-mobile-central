@@ -261,6 +261,8 @@ export interface Client {
   vehicles?: Vehicle[];
   documents?: DocumentBrief[];
   source_prospect?: ClientSourceProspect | null;
+  /** True when status is ready and required docs are approved. */
+  board_unlocked?: boolean;
 }
 
 export interface ClientConflict {

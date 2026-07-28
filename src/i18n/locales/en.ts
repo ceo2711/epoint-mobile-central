@@ -121,7 +121,16 @@ export const en: Messages = {
     step2Title: "Upload your documents",
     step2Desc: "License, SSN, and proofs for verification.",
     step3Title: "Follow your board",
-    step3Desc: "Track your onboarding progress.",
+    step3Desc: "Track your process progress.",
+    step3LockedDesc: "Unlocks when your data and documents are completed and verified",
+    step3LockedCta: "Pending",
+  },
+  portalBoardUnlock: {
+    title: "Congratulations!",
+    subtitle: "Your initial process is complete",
+    headline: "You successfully submitted your data and documents",
+    body: "An advisor has been assigned and your board is now unlocked so you can manage the entire process in one place.",
+    goToBoard: "Go to my board",
   },
   portalData: {
     title: "My data",
@@ -190,11 +199,13 @@ export const en: Messages = {
   },
   portalBoard: {
     title: "Board",
-    subtitle: "Track your onboarding tasks.",
+    subtitle: "Track your process tasks.",
     loading: "Loading board…",
     unavailableTitle: "No board yet",
     unavailableBody:
-      "When your advisor activates onboarding, you will see the lists and cards here.",
+      "When your data and documents are verified, you will see the lists and cards here.",
+    lockedTitle: "Board pending",
+    lockedBody: "Complete and verify your data and documents to unlock the board.",
     attachments: "Attachments",
     noAttachments: "No attachments yet",
     attachFiles: "Attach file",

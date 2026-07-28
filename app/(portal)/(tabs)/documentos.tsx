@@ -14,6 +14,7 @@ import { ScreenState } from "@/components/ui/ScreenState";
 import { Select } from "@/components/ui/Select";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { usePortalBoardUnlock } from "@/features/portal/PortalBoardUnlockContext";
 import { DocumentPreviewCard } from "@/features/documents/DocumentPreviewCard";
 import {
   DOCUMENT_SECTIONS,
@@ -200,6 +201,8 @@ function SelectableSection({
 export default function PortalDocumentosScreen() {
   const { token, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
+  const unlockCtx = usePortalBoardUnlock();
+  const reloadUnlock = unlockCtx?.reload;
   const [documents, setDocuments] = useState<DocumentBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -230,6 +233,7 @@ export default function PortalDocumentosScreen() {
       try {
         const data = await api.get<DocumentBrief[]>("/portal/documents", token);
         setDocuments(data);
+        await reloadUnlock?.();
       } catch (err) {
         setError(getUserFacingErrorMessage(err, t("portalDocs.loadError")));
       } finally {
@@ -237,7 +241,7 @@ export default function PortalDocumentosScreen() {
         setRefreshing(false);
       }
     },
-    [token, t],
+    [token, t, reloadUnlock],
   );
 
   useEffect(() => {

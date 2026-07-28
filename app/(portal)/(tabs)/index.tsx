@@ -12,6 +12,10 @@ import { useRouter } from "expo-router";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import {
+  usePortalBoardUnlock,
+  usePortalBoardUnlocked,
+} from "@/features/portal/PortalBoardUnlockContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { Client } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
@@ -33,6 +37,8 @@ const STEPS = [
     step: "3",
     titleKey: "portal.step3Title",
     descKey: "portal.step3Desc",
+    lockedDescKey: "portal.step3LockedDesc",
+    lockedCtaKey: "portal.step3LockedCta",
     href: "/(portal)/(tabs)/tablero",
   },
 ] as const;
@@ -41,6 +47,10 @@ export default function PortalHomeScreen() {
   const { token, user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
+  const boardUnlocked = usePortalBoardUnlocked();
+  const unlockCtx = usePortalBoardUnlock();
+  const reloadUnlock = unlockCtx?.reload;
+  const unlockClient = unlockCtx?.client;
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,6 +64,7 @@ export default function PortalHomeScreen() {
       try {
         const data = await api.get<Client>("/portal/me", token);
         setClient(data);
+        await reloadUnlock?.();
       } catch (err) {
         setError(getUserFacingErrorMessage(err, t("portal.loadError")));
       } finally {
@@ -61,7 +72,7 @@ export default function PortalHomeScreen() {
         setRefreshing(false);
       }
     },
-    [token, t],
+    [token, t, reloadUnlock],
   );
 
   useEffect(() => {
@@ -69,6 +80,12 @@ export default function PortalHomeScreen() {
       void load();
     }
   }, [authLoading, token, load]);
+
+  useEffect(() => {
+    if (unlockClient) {
+      setClient(unlockClient);
+    }
+  }, [unlockClient]);
 
   if (authLoading || loading) {
     return <ScreenState loading message={t("portal.loading")} />;
@@ -99,24 +116,46 @@ export default function PortalHomeScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.sectionLabel}>{t("portal.nextSteps")}</Text>
-      {STEPS.map((item) => (
-        <TouchableOpacity
-          key={item.step}
-          accessibilityRole="button"
-          activeOpacity={0.85}
-          style={styles.stepCard}
-          onPress={() => router.push(item.href as never)}
-        >
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepNumber}>{item.step}</Text>
-          </View>
-          <View style={styles.stepBody}>
-            <Text style={styles.stepTitle}>{t(item.titleKey)}</Text>
-            <Text style={styles.stepDesc}>{t(item.descKey)}</Text>
-            <Text style={styles.stepLink}>{t("common.go")}</Text>
-          </View>
-        </TouchableOpacity>
-      ))}
+      {STEPS.map((item) => {
+        const locked = item.step === "3" && !boardUnlocked;
+        if (locked) {
+          return (
+            <View
+              key={item.step}
+              accessibilityState={{ disabled: true }}
+              style={[styles.stepCard, styles.stepCardLocked]}
+            >
+              <View style={[styles.stepBadge, styles.stepBadgeLocked]}>
+                <Text style={styles.stepNumber}>{item.step}</Text>
+              </View>
+              <View style={styles.stepBody}>
+                <Text style={styles.stepTitle}>{t(item.titleKey)}</Text>
+                <Text style={styles.stepDesc}>{t(item.lockedDescKey)}</Text>
+                <Text style={styles.stepLinkLocked}>{t(item.lockedCtaKey)}</Text>
+              </View>
+            </View>
+          );
+        }
+
+        return (
+          <TouchableOpacity
+            key={item.step}
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            style={styles.stepCard}
+            onPress={() => router.push(item.href as never)}
+          >
+            <View style={styles.stepBadge}>
+              <Text style={styles.stepNumber}>{item.step}</Text>
+            </View>
+            <View style={styles.stepBody}>
+              <Text style={styles.stepTitle}>{t(item.titleKey)}</Text>
+              <Text style={styles.stepDesc}>{t(item.descKey)}</Text>
+              <Text style={styles.stepLink}>{t("common.go")}</Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -160,6 +199,9 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
     padding: 16,
   },
+  stepCardLocked: {
+    opacity: 0.7,
+  },
   stepBadge: {
     width: 36,
     height: 36,
@@ -167,6 +209,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
+  },
+  stepBadgeLocked: {
+    backgroundColor: colors.brownMuted,
   },
   stepNumber: {
     color: colors.white,
@@ -192,6 +237,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: colors.brand,
+  },
+  stepLinkLocked: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.brownMuted,
   },
   error: {
     color: colors.danger,

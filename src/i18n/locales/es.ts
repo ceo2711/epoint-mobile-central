@@ -119,7 +119,16 @@ export const es = {
     step2Title: "Subí tus documentos",
     step2Desc: "Licencia, SSN y comprobantes para verificación.",
     step3Title: "Seguí tu tablero",
-    step3Desc: "Revisá el progreso de tu onboarding.",
+    step3Desc: "Revisá el progreso de tu proceso.",
+    step3LockedDesc: "Se habilita al completar y verificar tus datos y documentos",
+    step3LockedCta: "Pendiente",
+  },
+  portalBoardUnlock: {
+    title: "¡Felicitaciones!",
+    subtitle: "Tu proceso inicial está completo",
+    headline: "Cargaste tus datos y documentos con éxito",
+    body: "Ya tenés asignado un asesor y habilitamos tu tablero para que gestiones todo el proceso desde un solo lugar.",
+    goToBoard: "Ir a mi tablero",
   },
   portalData: {
     title: "Mis datos",
@@ -188,11 +197,14 @@ export const es = {
   },
   portalBoard: {
     title: "Tablero",
-    subtitle: "Seguimiento de las tareas de tu onboarding.",
+    subtitle: "Seguimiento de las tareas de tu proceso.",
     loading: "Cargando tablero…",
     unavailableTitle: "Todavía no hay tablero",
     unavailableBody:
-      "Cuando tu asesor active el onboarding, vas a ver las listas y tarjetas acá.",
+      "Cuando completes tus datos y documentos verificados, vas a ver las listas y tarjetas acá.",
+    lockedTitle: "Tablero pendiente",
+    lockedBody:
+      "Completá y verificá tus datos y documentos para desbloquear el tablero.",
     attachments: "Adjuntos",
     noAttachments: "Sin archivos adjuntos",
     attachFiles: "Adjuntar archivo",

@@ -144,11 +144,15 @@ export const clientNav: NavItem[] = [
 export function getAccessibleNavItems(
   user: User | null,
   hasPermission: (permission: string) => boolean,
+  options?: { boardUnlocked?: boolean },
 ): NavItem[] {
   if (!user) return [];
 
   if (user.role.code === "CLIENT") {
-    return clientNav;
+    const unlocked = Boolean(options?.boardUnlocked);
+    return clientNav.filter(
+      (item) => item.href !== "/(portal)/(tabs)/tablero" || unlocked,
+    );
   }
 
   return internalNav.filter((item) => {

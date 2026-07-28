@@ -1,17 +1,34 @@
+import { useEffect } from "react";
+import { StyleSheet, View } from "react-native";
+import { useRouter } from "expo-router";
+
 import { useAuth } from "@/features/auth/AuthContext";
 import { ClientBoardPanel } from "@/features/clients/components/ClientBoardPanel";
+import {
+  usePortalBoardUnlock,
+  usePortalBoardUnlocked,
+} from "@/features/portal/PortalBoardUnlockContext";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { colors } from "@/theme/tokens";
-import { StyleSheet, View } from "react-native";
 
 export default function PortalTableroScreen() {
   const { token, user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
+  const router = useRouter();
   const clientId = user?.client_id;
+  const boardUnlocked = usePortalBoardUnlocked();
+  const unlockCtx = usePortalBoardUnlock();
+  const unlocking = Boolean(unlockCtx?.loading);
 
-  if (authLoading) {
+  useEffect(() => {
+    if (!authLoading && !unlocking && unlockCtx?.client && !boardUnlocked) {
+      router.replace("/(portal)/(tabs)" as never);
+    }
+  }, [authLoading, unlocking, unlockCtx?.client, boardUnlocked, router]);
+
+  if (authLoading || unlocking) {
     return <ScreenState loading message={t("portalBoard.loading")} />;
   }
 
@@ -22,6 +39,18 @@ export default function PortalTableroScreen() {
           icon="clipboard-outline"
           title={t("portalBoard.unavailableTitle")}
           description={t("portalBoard.unavailableBody")}
+        />
+      </View>
+    );
+  }
+
+  if (!boardUnlocked) {
+    return (
+      <View style={styles.wrap}>
+        <EmptyState
+          icon="lock-closed-outline"
+          title={t("portalBoard.lockedTitle")}
+          description={t("portalBoard.lockedBody")}
         />
       </View>
     );
