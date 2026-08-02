@@ -65,10 +65,11 @@ export default function ClientesScreen() {
 
   const roleCode = user?.role.code;
   const isAdmin = roleCode === "ADMIN";
-  const isOnboardingManager = roleCode === "ONBOARDING_MANAGER";
-  const showAdvisor = isAdmin || roleCode === "SALES_REP";
+  const isOnboardingLeader =
+    roleCode === "AREA_LEADER" && user?.area?.code === "ONBOARDING";
+  const showAdvisor = isAdmin || roleCode === "SALES_REP" || roleCode === "SUB_SELLER";
   const canBulkDelete = isAdmin && hasPermission("clients:delete");
-  const canRunReminders = isAdmin || isOnboardingManager;
+  const canRunReminders = isAdmin || roleCode === "BRANCH_MANAGER" || isOnboardingLeader;
 
   const [items, setItems] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
@@ -149,7 +150,7 @@ export default function ClientesScreen() {
           page_size: String(CLIENTS_PAGE_SIZE),
         });
         if (query) params.set("search", query);
-        if (isOnboardingManager) params.set("onboarding_only", "true");
+        if (isOnboardingLeader) params.set("onboarding_only", "true");
         if (showMerchantFilter) {
           if (merchantFilter === "all") {
             params.set("all_merchants", "true");
@@ -181,7 +182,7 @@ export default function ClientesScreen() {
       token,
       page,
       query,
-      isOnboardingManager,
+      isOnboardingLeader,
       showMerchantFilter,
       merchantFilter,
       showSalesRepFilter,
@@ -368,10 +369,10 @@ export default function ClientesScreen() {
   }, [token, emailTarget, emailSubject, emailMessage]);
 
   const subtitle = useMemo(() => {
-    if (isOnboardingManager) return "Clientes en onboarding";
+    if (isOnboardingLeader) return "Clientes en onboarding";
     if (roleCode === "ADVISOR") return "Tus clientes asignados";
     return `${total} en total`;
-  }, [isOnboardingManager, roleCode, total]);
+  }, [isOnboardingLeader, roleCode, total]);
 
   if (authLoading || (loading && items.length === 0 && !error)) {
     return <ScreenState loading message="Cargando clientes…" />;

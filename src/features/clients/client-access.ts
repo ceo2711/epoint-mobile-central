@@ -6,18 +6,17 @@ function isOnboardingAreaLeader(user: Pick<User, "role" | "area"> | null | undef
   return user?.role.code === "AREA_LEADER" && user.area?.code === "ONBOARDING";
 }
 
+function canManageOnboarding(user: Pick<User, "role" | "area"> | null | undefined): boolean {
+  if (!user) return false;
+  const role = user.role.code;
+  return role === "ADMIN" || role === "BRANCH_MANAGER" || isOnboardingAreaLeader(user);
+}
+
 export function canViewClientOnboardingWorkspace(
   user: Pick<User, "id" | "role" | "area"> | null | undefined,
 ): boolean {
   if (!user) return false;
-  const role = user.role.code;
-  return (
-    role === "ADMIN" ||
-    role === "BRANCH_MANAGER" ||
-    role === "ONBOARDING_MANAGER" ||
-    role === "ADVISOR" ||
-    isOnboardingAreaLeader(user)
-  );
+  return canManageOnboarding(user) || user.role.code === "ADVISOR";
 }
 
 export function canViewApprovedClientWorkspace(
@@ -33,13 +32,7 @@ export function canEditClientProfile(
   hasUpdatePermission: boolean,
 ): boolean {
   if (!hasUpdatePermission || !client || !user) return false;
-  const role = user.role.code;
-  if (
-    role === "ONBOARDING_MANAGER" ||
-    role === "ADMIN" ||
-    role === "BRANCH_MANAGER" ||
-    isOnboardingAreaLeader(user)
-  ) {
+  if (canManageOnboarding(user)) {
     return true;
   }
   return SALES_REP_EDITABLE_STATUSES.includes(
@@ -53,10 +46,7 @@ export function canManageClientAdvisor(
   hasApprovePermission: boolean,
 ): boolean {
   if (!user || !client?.approved_at) return false;
-  if (user.role.code === "ADMIN" || user.role.code === "BRANCH_MANAGER" || isOnboardingAreaLeader(user)) {
-    return true;
-  }
-  if (user.role.code === "ONBOARDING_MANAGER" && hasApprovePermission) return true;
+  if (canManageOnboarding(user) && hasApprovePermission) return true;
   return false;
 }
 
@@ -66,5 +56,5 @@ export function canContactClientAdvisor(
 ): boolean {
   if (!user || !client?.advisor) return false;
   const role = user.role.code;
-  return role === "ADMIN" || role === "SALES_REP";
+  return role === "ADMIN" || role === "SALES_REP" || role === "SUB_SELLER";
 }
