@@ -45,7 +45,7 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.prospects",
     icon: "person-add-outline",
     permission: "prospects:read",
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER"],
+    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
     primaryTab: true,
   },
   {
@@ -54,7 +54,7 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.calendar",
     icon: "calendar-outline",
     permission: null,
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER"],
+    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
   },
   {
     href: "/(staff)/(tabs)/contratos",
@@ -62,7 +62,7 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.contracts",
     icon: "document-text-outline",
     permission: null,
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER"],
+    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
   },
   {
     href: "/(staff)/(tabs)/pagos",
@@ -70,7 +70,7 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.payments",
     icon: "card-outline",
     permission: null,
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER"],
+    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
   },
   {
     href: "/(staff)/(tabs)/usuarios",
