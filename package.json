@@ -54,7 +54,15 @@
     "web": "expo start --web",
     "lint": "tsc --noEmit",
     "build:dev:ios": "eas build --profile development --platform ios",
-    "build:dev:android": "eas build --profile development --platform android"
+    "build:dev:android": "eas build --profile development --platform android",
+    "build:preview:ios": "eas build --profile preview --platform ios",
+    "build:preview:android": "eas build --profile preview --platform android",
+    "build:preview:all": "eas build --profile preview --platform all",
+    "build:prod:ios": "eas build --profile production --platform ios",
+    "build:prod:android": "eas build --profile production --platform android",
+    "build:prod:all": "eas build --profile production --platform all",
+    "submit:ios": "eas submit --profile production --platform ios",
+    "submit:android": "eas submit --profile production --platform android"
   },
   "private": true
 }

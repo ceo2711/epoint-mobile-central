@@ -3,6 +3,8 @@ node_modules/
 dist/
 dist-check/
 web-build/
+android/
+ios/
 .env
 *.jks
 *.p8
@@ -13,6 +15,9 @@ web-build/
 npm-debug.*
 *.jsbundle
 .claude/
+secrets/
+google-service-account.json
+play-service-account.json
 
 # @generated expo-cli
 expo-env.d.ts

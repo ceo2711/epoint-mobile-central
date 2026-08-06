@@ -140,11 +140,87 @@ mobile/
     components/
 ```
 
+## Store builds (App Store / Google Play)
+
+Estado detallado (qué ya se hizo en App Store y qué falta en Google Play): [`docs/STORE_DEPLOYMENT.md`](docs/STORE_DEPLOYMENT.md).
+
+Los perfiles EAS embeben la API según el entorno:
+
+| Perfil | API |
+|--------|-----|
+| `preview` | `https://dev-epoint-crm-backend-3807e7e86dca.herokuapp.com/api/v1` (dev) |
+| `production` | `https://epoint-crm-backend-7d70ac333373.herokuapp.com/api/v1` (prod) |
+
+El `.env` local **no** se usa en esos builds; sigue sirviendo solo para Expo Go / desarrollo diario.
+
+### Comandos
+
+```bash
+# Preview interno (APK Android / IPA ad-hoc)
+npm run build:preview:ios
+npm run build:preview:android
+npm run build:preview:all
+
+# Production (AAB para Play + IPA para App Store)
+npm run build:prod:ios
+npm run build:prod:android
+npm run build:prod:all
+
+# Enviar el último build production a las stores
+npm run submit:ios
+npm run submit:android
+```
+
+### Checklist antes del primer submit
+
+1. `npx eas whoami` — sesión Expo correcta (proyecto `epoint-crm-mobile`, owner `alexisguanique`).
+2. **Apple Developer** + app en App Store Connect con bundle `com.epoint.crm` (EAS gestiona certificados).
+3. **Google Play Console** + app con package `com.epoint.crm`; credenciales de servicio en EAS para submit.
+4. **Privacy Policy URL** pública (obligatoria en ambas stores).
+5. Screenshots, descripción, categoría y age rating en cada consola.
+6. Push remoto (opcional pero recomendado): FCM (Android) y APNs (iOS) en [expo.dev](https://expo.dev).
+
+> `production` usa `autoIncrement` remoto para `buildNumber` / `versionCode`. La versión de marketing (`version` en `app.json`) se sube a mano cuando corresponda (p.ej. `1.0.1`).
+
+### Google Play (preparación)
+
+**Package:** `com.epoint.crm` · **AAB** vía `npm run build:prod:android`
+
+#### Pedirle al titular de la cuenta (Eberths)
+
+1. Crear / pagar [Google Play Console](https://play.google.com/console) (USD 25 una vez), o invitarte como **Admin** / **Release manager**.
+2. Crear app **EPoint Credit**, gratis, package lo define el AAB (`com.epoint.crm`).
+3. (Opcional para `eas submit`) Service account JSON con acceso a Play Developer API — guardarlo como `play-service-account.json` (gitignored).
+
+#### Textos de ficha (EN, listos para pegar)
+
+**Short description (≤80):**
+```
+Secure credit onboarding: profile, documents, and status tracking.
+```
+
+**Full description:** misma description larga de App Store Connect (EPoint Credit).
+
+**Privacy policy:** `https://epointsolution.com/`
+
+**Category:** Finance · **Target audience:** 18+
+
+**App access (restricted):** demo account en prod (crear cuando toque) — mientras tanto documentar en Play Console.
+
+**Data safety:** email, name, phone, address, credit info, sensitive info (SSN), photos/docs, user ID — linked to user, not for advertising/tracking; purpose app functionality.
+
+**Tracks:** primero **Internal testing** con el AAB; producción cuando Google lo permita (cuentas nuevas a veces exigen closed testing).
+
+Sin cuenta de Play aún: se puede generar y guardar el AAB en Expo; la subida espera la consola.
+
 ## Scripts
 
 ```bash
-npm start          # Expo DevTools
+npm start                 # Expo DevTools
 npm run android
 npm run ios
-npm run lint       # tsc --noEmit
+npm run lint              # tsc --noEmit
+npm run build:preview:*   # builds internos con API Heroku
+npm run build:prod:*      # builds store (AAB / IPA)
+npm run submit:ios|android
 ```

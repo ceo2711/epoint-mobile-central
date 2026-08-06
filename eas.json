@@ -1,7 +1,8 @@
 {
   "cli": {
     "version": ">= 16.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "remote",
+    "promptToConfigurePushNotifications": false
   },
   "build": {
     "development": {
@@ -28,13 +29,32 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APP_ENV": "preview",
+        "EXPO_PUBLIC_API_URL": "https://dev-epoint-crm-backend-3807e7e86dca.herokuapp.com/api/v1"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://epoint-crm-backend-7d70ac333373.herokuapp.com/api/v1"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6796205273",
+        "appleTeamId": "F75PF6CU83",
+        "ascApiKeyPath": "./secrets/AuthKey_8UGGW5V239.p8",
+        "ascApiKeyIssuerId": "2c34a2f1-f5e8-490d-85ad-bddc55980867",
+        "ascApiKeyId": "8UGGW5V239"
+      }
+    }
   }
 }
