@@ -1,7 +1,9 @@
 import type { User } from "@/types/api";
+import { isSalesAreaLeader } from "@/lib/roles";
 
 export type StaffRoleCode =
   | "ADMIN"
+  | "BRANCH_MANAGER"
   | "SALES_REP"
   | "SUB_SELLER"
   | "ADVISOR"
@@ -18,9 +20,19 @@ export interface NavItem {
   icon: string;
   permission?: string | null;
   roles?: readonly StaffRoleCode[];
+  /** Ítems de supervisión comercial: visibles para líder solo si área = VENTAS. */
+  salesAreaOnly?: boolean;
   /** Show in bottom tab bar (others go to "Más") */
   primaryTab?: boolean;
 }
+
+const SALES_ROLES: readonly StaffRoleCode[] = [
+  "ADMIN",
+  "BRANCH_MANAGER",
+  "SALES_REP",
+  "SUB_SELLER",
+  "AREA_LEADER",
+];
 
 export const internalNav: NavItem[] = [
   {
@@ -45,7 +57,8 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.prospects",
     icon: "person-add-outline",
     permission: "prospects:read",
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
+    roles: SALES_ROLES,
+    salesAreaOnly: true,
     primaryTab: true,
   },
   {
@@ -54,7 +67,8 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.calendar",
     icon: "calendar-outline",
     permission: null,
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
+    roles: SALES_ROLES,
+    salesAreaOnly: true,
   },
   {
     href: "/(staff)/(tabs)/contratos",
@@ -62,7 +76,8 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.contracts",
     icon: "document-text-outline",
     permission: null,
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
+    roles: SALES_ROLES,
+    salesAreaOnly: true,
   },
   {
     href: "/(staff)/(tabs)/pagos",
@@ -70,7 +85,8 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.payments",
     icon: "card-outline",
     permission: null,
-    roles: ["ADMIN", "SALES_REP", "SUB_SELLER", "AREA_LEADER"],
+    roles: SALES_ROLES,
+    salesAreaOnly: true,
   },
   {
     href: "/(staff)/(tabs)/usuarios",
@@ -80,11 +96,28 @@ export const internalNav: NavItem[] = [
     permission: "users:read",
   },
   {
+    href: "/(staff)/(tabs)/sedes",
+    webHref: "/sedes",
+    labelKey: "nav.sedes",
+    icon: "location-outline",
+    permission: "sedes:read",
+    roles: ["ADMIN"],
+  },
+  {
     href: "/(staff)/(tabs)/comercios",
     webHref: "/comercios",
     labelKey: "nav.merchants",
     icon: "storefront-outline",
-    permission: "merchants:create",
+    permission: "merchants:read",
+    roles: ["ADMIN"],
+  },
+  {
+    href: "/(staff)/(tabs)/fuentes",
+    webHref: "/fuentes",
+    labelKey: "nav.sources",
+    icon: "pricetag-outline",
+    permission: "sources:read",
+    roles: ["ADMIN"],
   },
   {
     href: "/(staff)/(tabs)/roles",
@@ -92,6 +125,7 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.roles",
     icon: "shield-checkmark-outline",
     permission: "roles:read",
+    roles: ["ADMIN"],
   },
   {
     href: "/(staff)/(tabs)/cuenta",
@@ -155,12 +189,24 @@ export function getAccessibleNavItems(
     );
   }
 
-  return internalNav.filter((item) => {
-    if (item.roles && !item.roles.includes(user.role.code as StaffRoleCode)) {
-      return false;
-    }
-    return !item.permission || hasPermission(item.permission);
-  });
+  const salesLeader = isSalesAreaLeader(user);
+
+  return internalNav
+    .filter((item) => {
+      if (item.roles && !item.roles.includes(user.role.code as StaffRoleCode)) {
+        return false;
+      }
+      if (item.salesAreaOnly && user.role.code === "AREA_LEADER" && !salesLeader) {
+        return false;
+      }
+      return !item.permission || hasPermission(item.permission);
+    })
+    .map((item) => {
+      if (item.href === "/(staff)/(tabs)/usuarios" && salesLeader) {
+        return { ...item, labelKey: "nav.salesReps" };
+      }
+      return item;
+    });
 }
 
 export function getDefaultAppPath(roleCode: string): string {

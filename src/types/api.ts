@@ -10,10 +10,56 @@ export interface AreaBrief {
   name: string;
 }
 
+export interface Area {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface MerchantBrief {
   id: number;
   code: string;
   name: string;
+}
+
+export interface SedeBrief {
+  id: number;
+  code: string;
+  name: string;
+}
+
+export interface Sede {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  avatar_url?: string | null;
+}
+
+export interface Source {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CalendlySalesRep {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  connected: boolean;
+  scheduling_url: string | null;
+  last_synced_at: string | null;
+  sede_id?: number | null;
 }
 
 export interface AdvisorBrief {
@@ -31,6 +77,8 @@ export interface User {
   phone: string | null;
   role: RoleBrief;
   area: AreaBrief | null;
+  sede_id?: number | null;
+  sede?: SedeBrief | null;
   must_change_password: boolean;
   totp_enabled: boolean;
   is_active: boolean;
@@ -42,6 +90,8 @@ export interface User {
   merchants?: MerchantBrief[];
   active_merchant_id?: number | null;
   active_merchant?: MerchantBrief | null;
+  can_manage_sub_sellers?: boolean;
+  is_sub_seller?: boolean;
 }
 
 export interface Merchant {
@@ -51,6 +101,7 @@ export interface Merchant {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  sede_id?: number | null;
 }
 
 export interface Role {

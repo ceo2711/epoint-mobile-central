@@ -19,6 +19,7 @@ import { usePathname, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { runOnJS } from "react-native-reanimated";
 
+import { MerchantSwitcher } from "@/components/staff/MerchantSwitcher";
 import { UserAvatar } from "@/components/ui/UserAvatar";
 import {
   BackGestureProvider,
@@ -273,6 +274,7 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
         </View>
 
         <View style={styles.headerRight}>
+          {user?.role.code !== "CLIENT" ? <MerchantSwitcher /> : null}
           <NotificationBell />
           <TouchableOpacity
             accessibilityRole="button"

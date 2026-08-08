@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -20,17 +20,16 @@ import { Select } from "@/components/ui/Select";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
-import { fetchSedes } from "@/lib/staffScope";
-import type { Merchant, Paginated, Sede } from "@/types/api";
+import type { Paginated, Source } from "@/types/api";
 import { colors, radii, spacing } from "@/theme/tokens";
 
-const CODE_RE = /^[a-z0-9-]+$/;
+const CODE_RE = /^[A-Z0-9_]+$/;
 
 type FormState = {
   code: string;
   name: string;
   description: string;
-  sede_id: string;
+  sort_order: string;
   is_active: boolean;
 };
 
@@ -38,7 +37,7 @@ const EMPTY_FORM: FormState = {
   code: "",
   name: "",
   description: "",
-  sede_id: "",
+  sort_order: "0",
   is_active: true,
 };
 
@@ -46,41 +45,22 @@ function unwrapList<T>(data: T[] | Paginated<T>): T[] {
   return Array.isArray(data) ? data : data.items;
 }
 
-export default function ComerciosScreen() {
+export default function FuentesScreen() {
   const { t } = useTranslation();
   const { token, hasPermission, isLoading: authLoading } = useAuth();
-  const canCreate = hasPermission("merchants:create");
-  const canUpdate = hasPermission("merchants:update");
+  const canCreate = hasPermission("sources:create");
+  const canUpdate = hasPermission("sources:update");
 
-  const [items, setItems] = useState<Merchant[]>([]);
-  const [sedes, setSedes] = useState<Sede[]>([]);
+  const [items, setItems] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<Merchant | null>(null);
+  const [editing, setEditing] = useState<Source | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const sedeById = useMemo(() => {
-    const map = new Map<number, Sede>();
-    for (const sede of sedes) map.set(sede.id, sede);
-    return map;
-  }, [sedes]);
-
-  const sedeOptions = useMemo(
-    () => [
-      { value: "", label: t("catalog.noSede") },
-      ...sedes.map((sede) => ({
-        value: String(sede.id),
-        label: sede.name,
-        hint: sede.code,
-      })),
-    ],
-    [sedes, t],
-  );
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -88,15 +68,11 @@ export default function ComerciosScreen() {
       if (!opts?.silent) setLoading(true);
       setError(null);
       try {
-        const [merchantsData, sedesData] = await Promise.all([
-          api.get<Merchant[] | Paginated<Merchant>>(
-            "/merchants?include_inactive=true",
-            token,
-          ),
-          fetchSedes(token, { includeInactive: true }),
-        ]);
-        setItems(unwrapList(merchantsData));
-        setSedes(sedesData);
+        const data = await api.get<Source[] | Paginated<Source>>(
+          "/sources?include_inactive=true",
+          token,
+        );
+        setItems(unwrapList(data));
       } catch (err) {
         setError(getUserFacingErrorMessage(err, t("catalog.loadError")));
       } finally {
@@ -118,15 +94,15 @@ export default function ComerciosScreen() {
     setModalOpen(true);
   }
 
-  function openEdit(merchant: Merchant) {
+  function openEdit(source: Source) {
     if (!canUpdate) return;
-    setEditing(merchant);
+    setEditing(source);
     setForm({
-      code: merchant.code,
-      name: merchant.name,
-      description: merchant.description ?? "",
-      sede_id: merchant.sede_id != null ? String(merchant.sede_id) : "",
-      is_active: merchant.is_active,
+      code: source.code,
+      name: source.name,
+      description: source.description ?? "",
+      sort_order: String(source.sort_order ?? 0),
+      is_active: source.is_active,
     });
     setFormError(null);
     setModalOpen(true);
@@ -142,9 +118,9 @@ export default function ComerciosScreen() {
   async function handleSave() {
     if (!token) return;
     const name = form.name.trim();
-    const code = form.code.trim().toLowerCase();
+    const code = form.code.trim().toUpperCase();
     const description = form.description.trim();
-    const sedeId = form.sede_id ? Number(form.sede_id) : null;
+    const sortOrder = Number.parseInt(form.sort_order, 10);
 
     if (!name) {
       setFormError(t("common.required"));
@@ -156,29 +132,33 @@ export default function ComerciosScreen() {
         return;
       }
     }
+    if (Number.isNaN(sortOrder)) {
+      setFormError(t("catalog.saveError"));
+      return;
+    }
 
     setSaving(true);
     setFormError(null);
     try {
       if (editing) {
         await api.patch(
-          `/merchants/${editing.id}`,
+          `/sources/${editing.id}`,
           {
             name,
             description: description || null,
+            sort_order: sortOrder,
             is_active: form.is_active,
-            sede_id: sedeId,
           },
           token,
         );
       } else {
         await api.post(
-          "/merchants",
+          "/sources",
           {
             code,
             name,
             description: description || null,
-            ...(sedeId != null ? { sede_id: sedeId } : {}),
+            sort_order: sortOrder,
           },
           token,
         );
@@ -201,7 +181,7 @@ export default function ComerciosScreen() {
     <View style={styles.wrap}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>{t("catalog.merchantsTitle")}</Text>
+          <Text style={styles.title}>{t("catalog.sourcesTitle")}</Text>
           <Text style={styles.subtitle}>
             {t("catalog.count", { count: items.length })}
           </Text>
@@ -230,42 +210,36 @@ export default function ComerciosScreen() {
         ListEmptyComponent={
           !loading ? <Text style={styles.empty}>{t("catalog.empty")}</Text> : null
         }
-        renderItem={({ item }) => {
-          const sede =
-            item.sede_id != null ? sedeById.get(item.sede_id) : undefined;
-          return (
-            <Pressable
-              disabled={!canUpdate}
-              onPress={() => openEdit(item)}
-              style={({ pressed }) => [pressed && canUpdate && styles.pressed]}
-            >
-              <Card style={styles.item}>
-                <View style={styles.row}>
-                  <Text style={styles.name}>{item.name}</Text>
-                  <View style={[styles.badge, !item.is_active && styles.badgeInactive]}>
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        !item.is_active && styles.badgeTextInactive,
-                      ]}
-                    >
-                      {item.is_active ? t("catalog.active") : t("catalog.inactive")}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.code}>{item.code}</Text>
-                {sede ? (
-                  <Text style={styles.meta}>
-                    {t("catalog.sede")}: {sede.name}
+        renderItem={({ item }) => (
+          <Pressable
+            disabled={!canUpdate}
+            onPress={() => openEdit(item)}
+            style={({ pressed }) => [pressed && canUpdate && styles.pressed]}
+          >
+            <Card style={styles.item}>
+              <View style={styles.row}>
+                <Text style={styles.name}>{item.name}</Text>
+                <View style={[styles.badge, !item.is_active && styles.badgeInactive]}>
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      !item.is_active && styles.badgeTextInactive,
+                    ]}
+                  >
+                    {item.is_active ? t("catalog.active") : t("catalog.inactive")}
                   </Text>
-                ) : null}
-                {item.description ? (
-                  <Text style={styles.meta}>{item.description}</Text>
-                ) : null}
-              </Card>
-            </Pressable>
-          );
-        }}
+                </View>
+              </View>
+              <Text style={styles.code}>{item.code}</Text>
+              <Text style={styles.meta}>
+                {t("catalog.sortOrder")}: {item.sort_order}
+              </Text>
+              {item.description ? (
+                <Text style={styles.meta}>{item.description}</Text>
+              ) : null}
+            </Card>
+          </Pressable>
+        )}
       />
 
       <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={closeModal}>
@@ -289,32 +263,35 @@ export default function ComerciosScreen() {
                 onChangeText={(code) =>
                   setForm((prev) => ({
                     ...prev,
-                    code: code.toLowerCase().replace(/[^a-z0-9-]/g, ""),
+                    code: code.toUpperCase().replace(/[^A-Z0-9_]/g, ""),
                   }))
                 }
                 editable={!editing && !saving}
-                autoCapitalize="none"
+                autoCapitalize="characters"
                 autoCorrect={false}
-                placeholder="epoint-lab"
+                placeholder="INFLUENCERS"
               />
-              <Text style={styles.hint}>{t("catalog.codeKebabHint")}</Text>
+              <Text style={styles.hint}>{t("catalog.codeSnakeHint")}</Text>
 
               <Input
                 label={t("catalog.name")}
                 value={form.name}
                 onChangeText={(name) => setForm((prev) => ({ ...prev, name }))}
                 editable={!saving}
-                placeholder="Epoint Lab"
+                placeholder="Influencers"
               />
 
-              <Select
-                label={t("catalog.sede")}
-                value={form.sede_id}
-                options={sedeOptions}
-                onChange={(sede_id) => setForm((prev) => ({ ...prev, sede_id }))}
-                placeholder={t("scope.selectSede")}
-                sheetTitle={t("catalog.sede")}
-                disabled={saving}
+              <Input
+                label={t("catalog.sortOrder")}
+                value={form.sort_order}
+                onChangeText={(sort_order) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    sort_order: sort_order.replace(/[^0-9-]/g, ""),
+                  }))
+                }
+                editable={!saving}
+                keyboardType="number-pad"
               />
 
               <Input

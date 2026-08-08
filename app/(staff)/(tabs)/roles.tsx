@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -9,17 +10,24 @@ import {
 
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
-import type { Role } from "@/types/api";
-import { colors, radii } from "@/theme/tokens";
+import type { Paginated, Role } from "@/types/api";
+import { colors, radii, spacing } from "@/theme/tokens";
+
+function unwrapList<T>(data: T[] | Paginated<T>): T[] {
+  return Array.isArray(data) ? data : data.items;
+}
 
 export default function RolesScreen() {
+  const { t } = useTranslation();
   const { token, isLoading: authLoading } = useAuth();
   const [items, setItems] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -27,30 +35,36 @@ export default function RolesScreen() {
       if (!opts?.silent) setLoading(true);
       setError(null);
       try {
-        const data = await api.get<Role[]>("/roles?include_inactive=true", token);
-        setItems(data);
+        const data = await api.get<Role[] | Paginated<Role>>("/roles", token);
+        setItems(unwrapList(data));
       } catch (err) {
-        setError(getUserFacingErrorMessage(err, "No se pudieron cargar los roles"));
+        setError(getUserFacingErrorMessage(err, t("catalog.loadError")));
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [token],
+    [token, t],
   );
 
   useEffect(() => {
     if (!authLoading && token) void load();
   }, [authLoading, token, load]);
 
+  function toggleExpanded(roleId: number) {
+    setExpanded((prev) => ({ ...prev, [roleId]: !prev[roleId] }));
+  }
+
   if (authLoading || (loading && items.length === 0 && !error)) {
-    return <ScreenState loading message="Cargando roles…" />;
+    return <ScreenState loading message={t("common.loading")} />;
   }
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Roles</Text>
-      <Text style={styles.subtitle}>{items.length} roles</Text>
+      <Text style={styles.title}>{t("catalog.rolesTitle")}</Text>
+      <Text style={styles.subtitle}>
+        {t("catalog.count", { count: items.length })}
+      </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -69,32 +83,59 @@ export default function RolesScreen() {
           />
         }
         ListEmptyComponent={
-          !loading ? <Text style={styles.empty}>No hay roles.</Text> : null
+          !loading ? <Text style={styles.empty}>{t("catalog.empty")}</Text> : null
         }
-        renderItem={({ item }) => (
-          <Card style={styles.item}>
-            <View style={styles.row}>
-              <Text style={styles.name}>{item.name}</Text>
-              <View style={[styles.badge, !item.is_active && styles.badgeInactive]}>
-                <Text
-                  style={[
-                    styles.badgeText,
-                    !item.is_active && styles.badgeTextInactive,
-                  ]}
-                >
-                  {item.is_active ? "Activo" : "Inactivo"}
-                </Text>
+        renderItem={({ item }) => {
+          const perms = item.permissions ?? [];
+          const isOpen = Boolean(expanded[item.id]);
+          return (
+            <Card style={styles.item}>
+              <View style={styles.row}>
+                <Text style={styles.name}>{item.name}</Text>
+                <View style={[styles.badge, !item.is_active && styles.badgeInactive]}>
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      !item.is_active && styles.badgeTextInactive,
+                    ]}
+                  >
+                    {item.is_active ? t("catalog.active") : t("catalog.inactive")}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Text style={styles.code}>{item.code}</Text>
-            <Text style={styles.meta}>
-              {item.permissions?.length ?? 0} permisos
-            </Text>
-            {item.description ? (
-              <Text style={styles.meta}>{item.description}</Text>
-            ) : null}
-          </Card>
-        )}
+              <Text style={styles.code}>{item.code}</Text>
+              {item.description ? (
+                <Text style={styles.meta}>{item.description}</Text>
+              ) : null}
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => toggleExpanded(item.id)}
+                style={styles.permToggle}
+              >
+                <Text style={styles.permToggleText}>
+                  {isOpen
+                    ? t("catalog.hidePermissions")
+                    : `${t("catalog.showPermissions")} (${perms.length})`}
+                </Text>
+              </Pressable>
+
+              {isOpen ? (
+                perms.length === 0 ? (
+                  <Text style={styles.meta}>{t("catalog.noPermissions")}</Text>
+                ) : (
+                  <View style={styles.chips}>
+                    {perms.map((perm) => (
+                      <View key={perm.id} style={styles.chip}>
+                        <Text style={styles.chipText}>{perm.code}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )
+              ) : null}
+            </Card>
+          );
+        }}
       />
     </View>
   );
@@ -104,8 +145,8 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   title: {
     fontSize: 28,
@@ -161,6 +202,35 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 13,
     color: colors.soft,
+  },
+  permToggle: {
+    alignSelf: "flex-start",
+    marginTop: 4,
+    paddingVertical: 4,
+  },
+  permToggleText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.brand,
+  },
+  chips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4,
+  },
+  chip: {
+    backgroundColor: colors.brandLight,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.brand,
   },
   empty: {
     textAlign: "center",
