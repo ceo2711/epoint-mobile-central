@@ -1,7 +1,7 @@
 # Contexto — Mobile ePoint CRM
 
-Repo git independiente: `https://github.com/AlexisGuanique/epoint-central-mobile.git`  
-Ramas típicas: `main`, `dev`, `release/1.0.0`. **No hay deploy Heroku** (app Expo).
+Repo git independiente: `https://github.com/ceo2711/epoint-mobile-central.git`  
+Ramas: `release/1.0.0` (store client-only), `release/2.0.0` (base ciclo 2), `feature/admin-mobile` (staff/admin). **No hay deploy Heroku** (app Expo).
 
 ## Stack
 
@@ -35,7 +35,7 @@ Lint: `npm run lint` → `tsc --noEmit`.
 app/
   (auth)/                 # login, 2FA, change-password (glass + desierto)
   (portal)/(tabs)/        # cliente: index, datos, documentos, tablero, cuenta
-  # (staff) no está en release/1.0.0 — ver rama feature/admin-mobile
+  (staff)/(tabs)/         # CRM: dashboard, clientes, prospectos, pagos, …
 src/
   components/{shell,ui}/
   contexts/LanguageContext.tsx   # idioma del dispositivo
@@ -50,8 +50,8 @@ src/
 
 - `AuthGlassShell` + `DesertBackground` (login / 2FA / change-password)
 - Tokens: SecureStore (nativo) / localStorage (web)
-- Flujo v1: login → 2FA opcional → `must_change_password` → portal cliente
-- Solo `CLIENT` puede entrar; staff se rechaza con mensaje a usar la web
+- Flujo: login → 2FA opcional → `must_change_password` → portal o staff
+- `CLIENT` → `/(portal)/(tabs)`; resto → `/(staff)/(tabs)/dashboard`
 
 ## Features
 

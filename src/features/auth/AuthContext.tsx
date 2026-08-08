@@ -12,10 +12,8 @@ import { useRouter } from "expo-router";
 import { api, setActiveMerchantIdProvider } from "@/lib/api";
 import {
   getDefaultAppPath,
-  isClientRole,
   mustForcePasswordChange,
 } from "@/lib/appNavigation";
-import { ApiError } from "@/lib/api-error";
 import {
   persistLoginSession,
   restoreSession,
@@ -30,18 +28,6 @@ import {
 } from "@/lib/auth-storage";
 import { setUnauthorizedHandler } from "@/lib/auth-unauthorized";
 import type { LoginResponse, User } from "@/types/api";
-
-/** Mensaje estable (es); el login también puede mapear a `login.staffNotAllowed`. */
-const STAFF_APP_MESSAGE =
-  "Esta app es solo para clientes. El equipo interno debe usar la versión web.";
-
-async function rejectNonClientUser(user: User): Promise<void> {
-  if (isClientRole(user.role.code)) return;
-  await revokeSession();
-  await clearToken();
-  await clearTwoFactorTempToken();
-  throw new ApiError(403, STAFF_APP_MESSAGE);
-}
 
 interface AuthContextValue {
   user: User | null;
@@ -80,13 +66,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     restoreSession()
-      .then(async (session) => {
+      .then((session) => {
         if (!session) return;
-        if (!isClientRole(session.user.role.code)) {
-          await revokeSession();
-          await clearToken();
-          return;
-        }
         setUser(session.user);
         setTokenState(session.token);
       })
@@ -132,14 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Respuesta de login inválida");
       }
 
-      try {
-        await rejectNonClientUser(response.user);
-      } catch (err) {
-        setUser(null);
-        setTokenState(null);
-        throw err;
-      }
-
       await persistLoginSession(response.access_token, response.refresh_token);
       setTokenState(response.access_token);
       setUser(response.user);
@@ -172,15 +145,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.access_token || !response.refresh_token || !response.user) {
         throw new Error("Respuesta 2FA inválida");
-      }
-
-      try {
-        await rejectNonClientUser(response.user);
-      } catch (err) {
-        await clearTwoFactorTempToken();
-        setUser(null);
-        setTokenState(null);
-        throw err;
       }
 
       await clearTwoFactorTempToken();
