@@ -85,21 +85,14 @@ Si el celular **no** está en la misma Wi‑Fi, apuntá a la API de Heroku:
 
 - Login + 2FA + cambio obligatorio de contraseña
 - Tokens en **SecureStore** (access + refresh) con refresh automático en 401
-- Rol `CLIENT` → tabs del portal; resto → tabs staff
+- **v1.0.0:** solo rol `CLIENT`. Usuarios internos (admin, ventas, etc.) deben usar la **app web**.
+- El trabajo staff/admin de la app móvil vive en la rama `feature/admin-mobile` (post-lanzamiento).
 
-## Pantallas incluidas
+## Pantallas incluidas (release 1.0.0)
 
 **Auth:** login, 2FA, cambio obligatorio de contraseña.
 
-**Portal cliente:** inicio, datos (SSN/dirección/vehículo), documentos (upload + verificación), tablero kanban, cuenta.
-
-**Staff (según rol/permiso):**
-- Panel / métricas
-- Clientes (lista + detalle con aprobar/rechazar, docs, tablero, reasignar asesor)
-- Prospectos (lista + detalle)
-- Calendario Calendly, Contratos DocuSign, Pagos
-- Usuarios, Comercios, Roles
-- Mi cuenta (perfil, comercio activo, contraseña)
+**Portal cliente:** inicio, datos (SSN/dirección/vehículo), documentos (upload + verificación), tablero kanban (cuando está desbloqueado), cuenta.
 
 ## Push notifications (app cerrada)
 
@@ -123,7 +116,7 @@ Los **popups del sistema con la app cerrada** requieren **push remoto** y **no f
 Android: en el primer `eas build` configurá credenciales FCM en [expo.dev](https://expo.dev) si te lo pide.  
 iOS: cuenta Apple Developer + push credentials (EAS te guía).
 
-Roles soportados en nav: `ADMIN`, `SALES_REP`, `ONBOARDING_MANAGER`, `ADVISOR`, `CLIENT`.
+Rol soportado en nav: `CLIENT`.
 
 ## Estructura
 
@@ -131,12 +124,12 @@ Roles soportados en nav: `ADMIN`, `SALES_REP`, `ONBOARDING_MANAGER`, `ADVISOR`, 
 mobile/
   app/                 # Expo Router
     (auth)/            # login, 2FA, cambiar contraseña
-    (staff)/(tabs)/    # CRM staff
-    (portal)/(tabs)/   # portal cliente
+    (portal)/(tabs)/   # portal cliente (v1)
   src/
     theme/
     lib/
     features/auth/
+    features/portal/
     components/
 ```
 

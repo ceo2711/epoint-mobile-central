@@ -13,7 +13,7 @@ export default function PortalLayout() {
     return <Redirect href="/(auth)/change-password" />;
   }
   if (user.role.code !== "CLIENT") {
-    return <Redirect href="/(staff)/(tabs)/dashboard" />;
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (

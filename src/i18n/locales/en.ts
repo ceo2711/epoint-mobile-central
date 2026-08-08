@@ -61,6 +61,8 @@ export const en: Messages = {
     hidePassword: "Hide password",
     submit: "Sign in",
     submitting: "Signing in…",
+    staffNotAllowed:
+      "This app is for clients only. Internal staff must use the web version.",
   },
   changePassword: {
     title: "Change your password",

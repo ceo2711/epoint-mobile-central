@@ -59,6 +59,8 @@ export const es = {
     hidePassword: "Ocultar contraseña",
     submit: "Iniciar sesión",
     submitting: "Ingresando…",
+    staffNotAllowed:
+      "Esta app es solo para clientes. El equipo interno debe usar la versión web.",
   },
   changePassword: {
     title: "Cambiá tu contraseña",
