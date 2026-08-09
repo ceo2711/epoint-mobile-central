@@ -2,49 +2,70 @@ import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 
+import { SalesRepList } from "@/components/staff/SalesRepList";
+import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { PaymentConfig, PaymentLink } from "@/types/api";
 import { PAYMENT_STATUS_LABELS } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
 
 export default function PagosScreen() {
+  const { t } = useTranslation();
   const { token, isLoading: authLoading } = useAuth();
+  const scope = useAdminSedeScope({ loadReps: true });
   const [config, setConfig] = useState<PaymentConfig | null>(null);
   const [items, setItems] = useState<PaymentLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const detailEnabled =
+    !scope.isGlobal || (scope.selectedSedeId != null && scope.selectedRepId != null);
+
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!token) return;
+      if (!token || !detailEnabled) {
+        setConfig(null);
+        setItems([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       if (!opts?.silent) setLoading(true);
       setError(null);
       try {
+        const qs =
+          scope.isGlobal && scope.selectedRepId != null
+            ? `?created_by_user_id=${scope.selectedRepId}`
+            : "";
         const [cfg, list] = await Promise.all([
           api.get<PaymentConfig>("/payments/config", token),
-          api.get<PaymentLink[]>("/payments/links", token),
+          api.get<PaymentLink[]>(`/payments/links${qs}`, token),
         ]);
         setConfig(cfg);
         setItems(list);
       } catch (err) {
-        setError(getUserFacingErrorMessage(err, "No se pudieron cargar los pagos"));
+        setError(getUserFacingErrorMessage(err, t("payments.loadError") || "No se pudieron cargar los pagos"));
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [token],
+    [token, detailEnabled, scope.isGlobal, scope.selectedRepId, t],
   );
 
   useEffect(() => {
@@ -59,7 +80,40 @@ export default function PagosScreen() {
     }
   }
 
-  if (authLoading || (loading && items.length === 0 && !error && !config)) {
+  if (authLoading || scope.loading) {
+    return <ScreenState loading message="Cargando pagos…" />;
+  }
+
+  if (scope.showSedePicker) {
+    return (
+      <ScrollView style={styles.wrap} contentContainerStyle={styles.pickerContent}>
+        <Text style={styles.title}>{t("payments.title")}</Text>
+        <Text style={styles.subtitle}>{t("scope.adminSedesHint")}</Text>
+        <SedeBranchList branches={scope.branches} onSelect={scope.selectSede} />
+      </ScrollView>
+    );
+  }
+
+  if (scope.isGlobal && scope.showRepPicker) {
+    return (
+      <ScrollView style={styles.wrap} contentContainerStyle={styles.pickerContent}>
+        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
+        <Text style={styles.title}>{t("payments.title")}</Text>
+        <Text style={styles.subtitle}>
+          {scope.selectedSede
+            ? t("scope.selectedSede", { name: scope.selectedSede.name })
+            : t("scope.adminRepsHint")}
+        </Text>
+        <SalesRepList
+          reps={scope.repsForSelectedSede}
+          onSelect={scope.selectRep}
+          showConnectionStatus={false}
+        />
+      </ScrollView>
+    );
+  }
+
+  if (loading && items.length === 0 && !error && !config) {
     return <ScreenState loading message="Cargando pagos…" />;
   }
 
@@ -71,10 +125,19 @@ export default function PagosScreen() {
         ? "Modo de prueba activo (stub)."
         : `Proveedor: ${config.default_provider}`;
 
+  const repName = scope.selectedRep
+    ? `${scope.selectedRep.first_name} ${scope.selectedRep.last_name}`.trim()
+    : null;
+
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Pagos</Text>
-      {configMessage ? <Text style={styles.subtitle}>{configMessage}</Text> : null}
+      {scope.isGlobal ? (
+        <ScopeBackButton label={t("scope.backToReps")} onPress={scope.clearRep} />
+      ) : null}
+      <Text style={styles.title}>{t("payments.title")}</Text>
+      <Text style={styles.subtitle}>
+        {[configMessage, scope.selectedSede?.name, repName].filter(Boolean).join(" · ")}
+      </Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -141,6 +204,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  pickerContent: {
+    paddingBottom: 32,
+    gap: 12,
   },
   title: {
     fontSize: 28,

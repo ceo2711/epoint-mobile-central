@@ -59,7 +59,12 @@ export interface CalendlySalesRep {
   connected: boolean;
   scheduling_url: string | null;
   last_synced_at: string | null;
+  avatar_url?: string | null;
   sede_id?: number | null;
+  sede_name?: string | null;
+  parent_user_id?: number | null;
+  parent_name?: string | null;
+  is_active?: boolean;
 }
 
 export interface AdvisorBrief {

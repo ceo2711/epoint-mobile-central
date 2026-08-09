@@ -7,11 +7,15 @@ import {
   View,
 } from "react-native";
 
+import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
+import { buildScopeQuery } from "@/lib/staffScope";
 import type { DashboardMetrics } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
 
@@ -27,20 +31,33 @@ function MetricCard({ label, value }: { label: string; value: number }) {
 export default function DashboardScreen() {
   const { user, token, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
+  const scope = useAdminSedeScope({ loadReps: true });
   const [data, setData] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const name = user ? `${user.first_name} ${user.last_name}`.trim() : "";
+  const metricsEnabled = !scope.isGlobal || scope.selectedSedeId != null;
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!token) return;
+      if (!token || !metricsEnabled) {
+        setData(null);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       if (!opts?.silent) setLoading(true);
       setError(null);
       try {
-        const metrics = await api.get<DashboardMetrics>("/dashboard/metrics", token);
+        const qs = buildScopeQuery({
+          sedeId: scope.isGlobal ? scope.selectedSedeId : null,
+        });
+        const metrics = await api.get<DashboardMetrics>(
+          `/dashboard/metrics${qs ? `?${qs}` : ""}`,
+          token,
+        );
         setData(metrics);
       } catch (err) {
         setError(getUserFacingErrorMessage(err, t("dashboard.loadError")));
@@ -49,14 +66,33 @@ export default function DashboardScreen() {
         setRefreshing(false);
       }
     },
-    [token, t],
+    [token, t, metricsEnabled, scope.isGlobal, scope.selectedSedeId],
   );
 
   useEffect(() => {
     if (!authLoading && token) void load();
   }, [authLoading, token, load]);
 
-  if (authLoading || (loading && !data && !error)) {
+  if (authLoading || scope.loading) {
+    return <ScreenState loading message={t("dashboard.loading")} />;
+  }
+
+  if (scope.showSedePicker) {
+    return (
+      <ScrollView style={styles.wrap} contentContainerStyle={styles.content}>
+        <Text style={styles.title}>{t("dashboard.title")}</Text>
+        <Text style={styles.subtitle}>{t("dashboard.pickSede")}</Text>
+        {scope.error ? <Text style={styles.error}>{t(scope.error)}</Text> : null}
+        <SedeBranchList
+          branches={scope.branches}
+          onSelect={scope.selectSede}
+          hintKey="dashboard.pickSede"
+        />
+      </ScrollView>
+    );
+  }
+
+  if (loading && !data && !error) {
     return <ScreenState loading message={t("dashboard.loading")} />;
   }
 
@@ -77,9 +113,14 @@ export default function DashboardScreen() {
         />
       }
     >
+      {scope.isGlobal ? (
+        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
+      ) : null}
+
       <Text style={styles.title}>{t("dashboard.title")}</Text>
       <Text style={styles.subtitle}>
         {name ? t("dashboard.hello", { name }) : t("dashboard.welcome")} · {user?.role.name}
+        {scope.selectedSede ? ` · ${scope.selectedSede.name}` : ""}
         {data?.merchant ? ` · ${data.merchant.name}` : ""}
       </Text>
 

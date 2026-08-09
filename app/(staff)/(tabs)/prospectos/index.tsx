@@ -3,6 +3,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,9 +11,13 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
+import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type { Paginated, Prospect } from "@/types/api";
 import { PROSPECT_STATUS_LABELS } from "@/types/api";
@@ -20,7 +25,9 @@ import { colors, radii } from "@/theme/tokens";
 
 export default function ProspectosScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { token, isLoading: authLoading } = useAuth();
+  const scope = useAdminSedeScope({ loadReps: true });
   const [items, setItems] = useState<Prospect[]>([]);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -29,9 +36,17 @@ export default function ProspectosScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const listEnabled = !scope.isGlobal || scope.selectedSedeId != null;
+
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!token) return;
+      if (!token || !listEnabled) {
+        setItems([]);
+        setTotal(0);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       if (!opts?.silent) setLoading(true);
       setError(null);
       try {
@@ -40,6 +55,9 @@ export default function ProspectosScreen() {
           page_size: "30",
         });
         if (query.trim()) params.set("search", query.trim());
+        if (scope.isGlobal && scope.selectedSedeId != null) {
+          params.set("sede_id", String(scope.selectedSedeId));
+        }
         const data = await api.get<Paginated<Prospect>>(
           `/prospects?${params.toString()}`,
           token,
@@ -53,7 +71,7 @@ export default function ProspectosScreen() {
         setRefreshing(false);
       }
     },
-    [token, query],
+    [token, query, listEnabled, scope.isGlobal, scope.selectedSedeId],
   );
 
   useEffect(() => {
@@ -65,14 +83,34 @@ export default function ProspectosScreen() {
     return () => clearTimeout(handle);
   }, [search]);
 
-  if (authLoading || (loading && items.length === 0 && !error)) {
+  if (authLoading || scope.loading) {
+    return <ScreenState loading message="Cargando prospectos…" />;
+  }
+
+  if (scope.showSedePicker) {
+    return (
+      <ScrollView style={styles.wrap} contentContainerStyle={styles.pickerContent}>
+        <Text style={styles.title}>Prospectos</Text>
+        <Text style={styles.subtitle}>{t("scope.adminSedesHint")}</Text>
+        <SedeBranchList branches={scope.branches} onSelect={scope.selectSede} />
+      </ScrollView>
+    );
+  }
+
+  if (loading && items.length === 0 && !error) {
     return <ScreenState loading message="Cargando prospectos…" />;
   }
 
   return (
     <View style={styles.wrap}>
+      {scope.isGlobal ? (
+        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
+      ) : null}
       <Text style={styles.title}>Prospectos</Text>
-      <Text style={styles.subtitle}>{total} en total</Text>
+      <Text style={styles.subtitle}>
+        {total} en total
+        {scope.selectedSede ? ` · ${scope.selectedSede.name}` : ""}
+      </Text>
 
       <TextInput
         value={search}
@@ -135,6 +173,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
   },
+  pickerContent: {
+    paddingBottom: 32,
+    gap: 12,
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
@@ -182,17 +224,18 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
     color: colors.brand,
   },
   meta: {
     fontSize: 13,
     color: colors.soft,
+    marginTop: 4,
   },
   empty: {
     textAlign: "center",
     color: colors.soft,
-    marginTop: 40,
+    marginTop: 24,
   },
   error: {
     color: colors.danger,

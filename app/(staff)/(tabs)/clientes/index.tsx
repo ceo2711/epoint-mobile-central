@@ -14,13 +14,17 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
+import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { CLIENTS_PAGE_SIZE } from "@/features/clients/constants";
+import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import type {
   Client,
@@ -61,7 +65,9 @@ function salesRepChipLabel(rep: SalesRepBrief): string {
 
 export default function ClientesScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { token, user, hasPermission, isLoading: authLoading } = useAuth();
+  const scope = useAdminSedeScope({ loadReps: true });
 
   const roleCode = user?.role.code;
   const isAdmin = roleCode === "ADMIN";
@@ -70,6 +76,7 @@ export default function ClientesScreen() {
   const showAdvisor = isAdmin || roleCode === "SALES_REP" || roleCode === "SUB_SELLER";
   const canBulkDelete = isAdmin && hasPermission("clients:delete");
   const canRunReminders = isAdmin || roleCode === "BRANCH_MANAGER" || isOnboardingLeader;
+  const listEnabled = !scope.isGlobal || scope.selectedSedeId != null;
 
   const [items, setItems] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
@@ -107,11 +114,15 @@ export default function ClientesScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [query, merchantFilter, salesRepId]);
+  }, [query, merchantFilter, salesRepId, scope.selectedSedeId]);
 
   useEffect(() => {
     setSelectedIds([]);
-  }, [page, query, merchantFilter, salesRepId]);
+  }, [page, query, merchantFilter, salesRepId, scope.selectedSedeId]);
+
+  useEffect(() => {
+    setSalesRepId(null);
+  }, [scope.selectedSedeId]);
 
   useEffect(() => {
     if (!token) return;
@@ -133,15 +144,40 @@ export default function ClientesScreen() {
       setSalesReps([]);
       return;
     }
+    // Prefer reps already scoped via admin sede gate when available.
+    if (scope.isGlobal && scope.selectedSedeId != null) {
+      setSalesReps(
+        scope.repsForSelectedSede.map((rep) => ({
+          id: rep.id,
+          first_name: rep.first_name,
+          last_name: rep.last_name,
+          email: rep.email,
+        })),
+      );
+      return;
+    }
     void api
       .get<SalesRepBrief[]>("/calendly/sales-reps", token)
       .then(setSalesReps)
       .catch(() => setSalesReps([]));
-  }, [token, showSalesRepFilter]);
+  }, [
+    token,
+    showSalesRepFilter,
+    scope.isGlobal,
+    scope.selectedSedeId,
+    scope.repsForSelectedSede,
+  ]);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!token) return;
+      if (!token || !listEnabled) {
+        setItems([]);
+        setTotal(0);
+        setPages(1);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       if (!opts?.silent) setLoading(true);
       setError(null);
       try {
@@ -151,6 +187,9 @@ export default function ClientesScreen() {
         });
         if (query) params.set("search", query);
         if (isOnboardingLeader) params.set("onboarding_only", "true");
+        if (scope.isGlobal && scope.selectedSedeId != null) {
+          params.set("sede_id", String(scope.selectedSedeId));
+        }
         if (showMerchantFilter) {
           if (merchantFilter === "all") {
             params.set("all_merchants", "true");
@@ -187,6 +226,9 @@ export default function ClientesScreen() {
       merchantFilter,
       showSalesRepFilter,
       salesRepId,
+      listEnabled,
+      scope.isGlobal,
+      scope.selectedSedeId,
     ],
   );
 
@@ -374,16 +416,36 @@ export default function ClientesScreen() {
     return `${total} en total`;
   }, [isOnboardingLeader, roleCode, total]);
 
-  if (authLoading || (loading && items.length === 0 && !error)) {
+  if (authLoading || scope.loading) {
+    return <ScreenState loading message="Cargando clientes…" />;
+  }
+
+  if (scope.showSedePicker) {
+    return (
+      <ScrollView style={styles.wrap} contentContainerStyle={styles.pickerContent}>
+        <Text style={styles.title}>Clientes</Text>
+        <Text style={styles.subtitle}>{t("scope.adminSedesHint")}</Text>
+        <SedeBranchList branches={scope.branches} onSelect={scope.selectSede} />
+      </ScrollView>
+    );
+  }
+
+  if (loading && items.length === 0 && !error) {
     return <ScreenState loading message="Cargando clientes…" />;
   }
 
   return (
     <View style={styles.wrap}>
+      {scope.isGlobal ? (
+        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
+      ) : null}
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.title}>Clientes</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text style={styles.subtitle}>
+            {subtitle}
+            {scope.selectedSede ? ` · ${scope.selectedSede.name}` : ""}
+          </Text>
         </View>
         <View style={styles.headerActions}>
           {canRunReminders ? (
@@ -753,6 +815,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+  },
+  pickerContent: {
+    paddingBottom: spacing.xxl,
+    gap: spacing.md,
   },
   header: {
     gap: spacing.sm,
