@@ -4,7 +4,7 @@ import { ScreenState } from "@/components/ui/ScreenState";
 import { useAuth, mustForcePasswordChange } from "@/features/auth/AuthContext";
 import { colors } from "@/theme/tokens";
 
-export default function PortalLayout() {
+export default function StaffLayout() {
   const { user, isLoading } = useAuth();
 
   if (isLoading) return <ScreenState loading />;
@@ -12,8 +12,8 @@ export default function PortalLayout() {
   if (mustForcePasswordChange(user)) {
     return <Redirect href="/(auth)/change-password" />;
   }
-  if (user.role.code !== "CLIENT") {
-    return <Redirect href="/(staff)/(tabs)/dashboard" />;
+  if (user.role.code === "CLIENT") {
+    return <Redirect href="/(portal)/(tabs)" />;
   }
 
   return (
