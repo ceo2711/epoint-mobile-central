@@ -30,9 +30,12 @@ El `.env` local no afecta builds de store.
 - [x] Envío a revisión (estado al momento del envío: **Pending Review**)
 
 ### Notas iOS
-- El binario **1.0.0 (10)** en review se construyó con API **dev**. El perfil `production` en repo ya apunta a **prod**; el próximo build iOS usará prod.
+- El binario **1.0.0 (10)** en review se construyó con API **dev** y el **icono placeholder de Expo**.
+- En repo (`release/1.0.0` desde `27e2654`) el icono/splash ya usan el logo ePoint; el perfil `production` apunta a API **prod**.
+- **Próximo paso:** nuevo build iOS production + submit (buildNumber auto-increment, p.ej. 11) para que Apple muestre el logo correcto.
 - Push APNs: pendiente (requiere login Apple ID del titular; se omitió para no bloquear el submit).
 - Reglamento de Servicios Digitales (UE): lo completa el Account Holder (Eberths) si hace falta.
+- Credenciales ASC locales: `secrets/AuthKey_8UGGW5V239.p8` (gitignored) + `eas.json` submit.production.ios.
 
 ### Comandos iOS (referencia)
 ```bash
