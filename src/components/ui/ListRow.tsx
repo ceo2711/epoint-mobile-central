@@ -25,35 +25,39 @@ export function ListRow({
       activeOpacity={0.75}
       disabled={!onPress}
       onPress={onPress}
-      style={styles.row}
+      style={styles.hit}
     >
-      <View style={styles.textWrap}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      <View style={styles.row}>
+        <View style={styles.textWrap}>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        </View>
+        {right}
+        {showChevron && onPress ? (
+          <Ionicons name="chevron-forward" size={18} color={colors.brownMuted} />
+        ) : null}
       </View>
-      {right}
-      {showChevron && onPress ? (
-        <Ionicons name="chevron-forward" size={18} color={colors.brownMuted} />
-      ) : null}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  hit: {
     backgroundColor: colors.white,
     borderRadius: radii.control,
     borderWidth: 1,
     borderColor: colors.line,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 14,
   },
   textWrap: {
     flex: 1,
-    gap: 2,
+    minWidth: 0,
+    marginRight: 10,
   },
   title: {
     fontSize: 15,
@@ -61,6 +65,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   subtitle: {
+    marginTop: 2,
     fontSize: 13,
     color: colors.soft,
   },

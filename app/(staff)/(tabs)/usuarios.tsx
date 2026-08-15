@@ -284,7 +284,7 @@ export default function UsuariosScreen() {
         });
         if (query) params.set("search", query);
         if (roleFilter) params.set("role_id", roleFilter);
-        if (showSedeSelect && sedeFilter) params.set("sede_id", sedeFilter);
+        if (sedeFilter) params.set("sede_id", sedeFilter);
 
         const data = await api.get<Paginated<User>>(
           `/users?${params.toString()}`,
@@ -300,7 +300,7 @@ export default function UsuariosScreen() {
         setRefreshing(false);
       }
     },
-    [token, page, query, roleFilter, sedeFilter, showSedeSelect, t],
+    [token, page, query, roleFilter, sedeFilter, t],
   );
 
   useEffect(() => {
@@ -494,15 +494,17 @@ export default function UsuariosScreen() {
       />
 
       <View style={styles.filters}>
-        <Select
-          label={t("users.filterRole")}
-          value={roleFilter}
-          options={roleFilterOptions}
-          onChange={setRoleFilter}
-          placeholder={t("users.allRoles")}
-          sheetTitle={t("users.filterRole")}
-        />
-        {showSedeSelect ? (
+        <View style={styles.filterItem}>
+          <Select
+            label={t("users.filterRole")}
+            value={roleFilter}
+            options={roleFilterOptions}
+            onChange={setRoleFilter}
+            placeholder={t("users.allRoles")}
+            sheetTitle={t("users.filterRole")}
+          />
+        </View>
+        <View style={styles.filterItem}>
           <Select
             label={t("users.filterSede")}
             value={sedeFilter}
@@ -511,7 +513,7 @@ export default function UsuariosScreen() {
             placeholder={t("users.allSedes")}
             sheetTitle={t("users.filterSede")}
           />
-        ) : null}
+        </View>
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -783,7 +785,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },
@@ -795,8 +797,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   filters: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: spacing.sm,
     marginBottom: spacing.md,
+    flexShrink: 0,
+  },
+  filterItem: {
+    flex: 1,
+    minWidth: 0,
   },
   list: {
     gap: 10,

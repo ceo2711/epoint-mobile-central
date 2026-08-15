@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { CalendlyMonthCalendar } from "@/components/staff/CalendlyMonthCalendar";
 import { SalesRepList } from "@/components/staff/SalesRepList";
-import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
 import { SedeBranchList } from "@/components/staff/SedeBranchList";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { useTranslation } from "@/contexts/LanguageContext";
@@ -97,11 +99,7 @@ export default function CalendarioScreen() {
         {},
         token,
       );
-      setInfo(
-        locale === "en"
-          ? `Synced ${result.synced_count} events`
-          : `Sincronizados ${result.synced_count} eventos`,
-      );
+      setInfo(t("calendar.syncedCount", { count: result.synced_count }));
       await load({ silent: true });
     } catch (err) {
       setError(getUserFacingErrorMessage(err, "No se pudo sincronizar Calendly"));
@@ -127,8 +125,11 @@ export default function CalendarioScreen() {
   if (scope.isGlobal && scope.showRepPicker) {
     return (
       <ScrollView style={styles.wrap} contentContainerStyle={styles.pickerContent}>
-        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
-        <Text style={styles.title}>{t("calendar.title")}</Text>
+        <ScopePageHeader
+          title={t("calendar.title")}
+          backLabel={t("scope.backToSedes")}
+          onBack={scope.clearSede}
+        />
         <Text style={styles.subtitle}>
           {scope.selectedSede
             ? t("scope.selectedSede", { name: scope.selectedSede.name })
@@ -149,9 +150,26 @@ export default function CalendarioScreen() {
     return <ScreenState loading message={`${t("calendar.title")}…`} />;
   }
 
-  const repName = scope.selectedRep
+  const selectedRepName = scope.selectedRep
     ? `${scope.selectedRep.first_name} ${scope.selectedRep.last_name}`.trim()
-    : null;
+    : "";
+  const ownerLabel = selectedRepName
+    ? t("calendar.ofRep", { name: selectedRepName })
+    : t("calendar.yours");
+  const lastSyncedLabel = connection?.last_synced_at
+    ? t("calendar.lastSynced", {
+        datetime: new Date(connection.last_synced_at).toLocaleString(
+          locale === "en" ? "en-US" : "es",
+          {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          },
+        ),
+      })
+    : t("calendar.neverSynced");
 
   return (
     <ScrollView
@@ -168,15 +186,22 @@ export default function CalendarioScreen() {
         />
       }
     >
-      {scope.isGlobal ? (
-        <ScopeBackButton label={t("scope.backToReps")} onPress={scope.clearRep} />
-      ) : null}
-      <Text style={styles.title}>{t("calendar.title")}</Text>
-      {repName || scope.selectedSede ? (
-        <Text style={styles.subtitle}>
-          {[scope.selectedSede?.name, repName].filter(Boolean).join(" · ")}
+      <ScopePageHeader
+        title={t("calendar.title")}
+        backLabel={scope.isGlobal ? t("scope.backToReps") : undefined}
+        onBack={scope.isGlobal ? scope.clearRep : undefined}
+      />
+
+      <View style={styles.ownerBlock}>
+        <Text style={styles.ownerName} numberOfLines={2}>
+          {ownerLabel}
         </Text>
-      ) : null}
+        {scope.selectedSede ? (
+          <Text style={styles.meta}>
+            {t("scope.selectedSede", { name: scope.selectedSede.name })}
+          </Text>
+        ) : null}
+      </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {info ? <Text style={styles.info}>{info}</Text> : null}
@@ -187,20 +212,25 @@ export default function CalendarioScreen() {
         </Card>
       ) : (
         <>
-          <Text style={styles.subtitle}>
-            {connection.calendly_user_name ?? t("calendly.connected")}
-            {connection.last_synced_at
-              ? ` · ${new Date(connection.last_synced_at).toLocaleString(
-                  locale === "en" ? "en-US" : "es",
-                )}`
-              : ""}
-          </Text>
-          <Button
-            title={t("calendar.sync")}
-            fullWidth
-            loading={syncing}
-            onPress={() => void onSync()}
-          />
+          <View style={styles.syncRow}>
+            <Text style={styles.syncLabel} numberOfLines={2}>
+              {lastSyncedLabel}
+            </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={t("calendar.sync")}
+              activeOpacity={0.7}
+              disabled={syncing}
+              onPress={() => void onSync()}
+              style={styles.syncBtn}
+            >
+              {syncing ? (
+                <ActivityIndicator size="small" color={colors.brand} />
+              ) : (
+                <Ionicons name="sync" size={20} color={colors.brand} />
+              )}
+            </TouchableOpacity>
+          </View>
           <CalendlyMonthCalendar events={events} locale={locale} />
         </>
       )}
@@ -226,13 +256,43 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },
   subtitle: {
     fontSize: 13,
     color: colors.soft,
+  },
+  ownerBlock: {
+    gap: 2,
+  },
+  ownerName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.brown,
+  },
+  meta: {
+    fontSize: 13,
+    color: colors.soft,
+  },
+  syncRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  syncLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.soft,
+  },
+  syncBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brandLight,
+    alignItems: "center",
+    justifyContent: "center",
   },
   body: {
     fontSize: 14,

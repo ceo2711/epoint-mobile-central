@@ -48,7 +48,10 @@ export function Select({
   const [mounted, setMounted] = useState(false);
   const anim = useRef(new Animated.Value(0)).current;
 
-  const selected = options.find((option) => option.value === value);
+  const selected = options.find(
+    (option) => String(option.value) === String(value),
+  );
+  const display = selected?.label ?? placeholder ?? "";
 
   useEffect(() => {
     if (open) {
@@ -78,13 +81,24 @@ export function Select({
   }
 
   function choose(next: string) {
-    close();
     if (next !== value) onChange(next);
+    close();
   }
 
   return (
     <View style={styles.wrap}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? (
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{label}</Text>
+          <Text
+            style={styles.selectedLabel}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {display}
+          </Text>
+        </View>
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -100,12 +114,16 @@ export function Select({
         <View style={styles.fieldInner}>
           <Text
             numberOfLines={1}
-            style={[styles.fieldText, !selected && styles.fieldPlaceholder]}
+            ellipsizeMode="tail"
+            style={[
+              styles.fieldText,
+              !selected && styles.fieldPlaceholder,
+            ]}
           >
-            {selected?.label ?? placeholder ?? ""}
+            {display}
           </Text>
           {selected?.hint ? (
-            <Text numberOfLines={1} style={styles.fieldHint}>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.fieldHint}>
               {selected.hint}
             </Text>
           ) : null}
@@ -211,18 +229,35 @@ export function Select({
 const styles = StyleSheet.create({
   wrap: {
     gap: 8,
+    width: "100%",
+    minWidth: 0,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
   },
   label: {
+    flexShrink: 0,
     fontSize: 13,
     fontWeight: "600",
     color: colors.brown,
   },
+  selectedLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.brand,
+  },
   field: {
+    width: "100%",
+    alignSelf: "stretch",
     minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
+    gap: 8,
     borderWidth: 1.5,
     borderColor: colors.line,
     backgroundColor: colors.white,
@@ -244,10 +279,11 @@ const styles = StyleSheet.create({
   },
   fieldInner: {
     flex: 1,
-    gap: 2,
     minWidth: 0,
+    gap: 2,
   },
   fieldText: {
+    width: "100%",
     fontSize: 16,
     fontWeight: "600",
     color: colors.ink,
@@ -261,6 +297,7 @@ const styles = StyleSheet.create({
     color: colors.soft,
   },
   chevronWrap: {
+    flexShrink: 0,
     width: 32,
     height: 32,
     borderRadius: 10,

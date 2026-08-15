@@ -14,7 +14,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
 import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -436,12 +436,13 @@ export default function ClientesScreen() {
 
   return (
     <View style={styles.wrap}>
-      {scope.isGlobal ? (
-        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
-      ) : null}
+      <ScopePageHeader
+        title="Clientes"
+        backLabel={scope.isGlobal ? t("scope.backToSedes") : undefined}
+        onBack={scope.isGlobal ? scope.clearSede : undefined}
+      />
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Clientes</Text>
           <Text style={styles.subtitle}>
             {subtitle}
             {scope.selectedSede ? ` · ${scope.selectedSede.name}` : ""}
@@ -837,7 +838,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },

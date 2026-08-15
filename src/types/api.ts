@@ -376,6 +376,21 @@ export interface ClientStats {
   total: number;
 }
 
+export interface StatusCount {
+  status: string;
+  count: number;
+}
+
+export interface SourceCount {
+  source: string;
+  count: number;
+}
+
+export interface TimeseriesPoint {
+  date: string;
+  count: number;
+}
+
 export interface AreaMetrics {
   code: string;
   name: string;
@@ -383,8 +398,10 @@ export interface AreaMetrics {
   total: number;
   in_pipeline: number;
   completed: number;
+  /** Porcentaje 0–100 (no fracción). */
   conversion_rate: number | null;
-  by_status: { status: string; count: number }[];
+  by_status: StatusCount[];
+  by_source?: SourceCount[];
 }
 
 export interface DashboardMetrics {
@@ -393,6 +410,9 @@ export interface DashboardMetrics {
   summary: ClientStats;
   by_status: Record<string, number>;
   areas: AreaMetrics[];
+  registrations?: TimeseriesPoint[];
+  prospect_registrations?: TimeseriesPoint[];
+  completions?: TimeseriesPoint[];
 }
 
 export type ProspectStatus =

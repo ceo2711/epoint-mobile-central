@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },

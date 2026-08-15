@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
 import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
@@ -103,10 +103,11 @@ export default function ProspectosScreen() {
 
   return (
     <View style={styles.wrap}>
-      {scope.isGlobal ? (
-        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
-      ) : null}
-      <Text style={styles.title}>Prospectos</Text>
+      <ScopePageHeader
+        title="Prospectos"
+        backLabel={scope.isGlobal ? t("scope.backToSedes") : undefined}
+        onBack={scope.isGlobal ? scope.clearSede : undefined}
+      />
       <Text style={styles.subtitle}>
         {total} en total
         {scope.selectedSede ? ` · ${scope.selectedSede.name}` : ""}
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },

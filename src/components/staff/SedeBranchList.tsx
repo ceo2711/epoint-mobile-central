@@ -12,7 +12,6 @@ type SedeBranchListProps = {
   titleKey?: string;
   hintKey?: string;
   emptyKey?: string;
-  countLabelKey?: string;
 };
 
 function initialsFor(name: string): string {
@@ -29,7 +28,6 @@ export function SedeBranchList({
   titleKey = "scope.adminSedesTitle",
   hintKey = "scope.adminSedesHint",
   emptyKey = "scope.adminSedesEmpty",
-  countLabelKey = "scope.branchRepCount",
 }: SedeBranchListProps) {
   const { t } = useTranslation();
 
@@ -76,9 +74,6 @@ export function SedeBranchList({
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={colors.brownMuted} />
                   </View>
-                  <Text style={styles.count}>
-                    {t(countLabelKey, { count: branch.repCount })} →
-                  </Text>
                 </View>
               </View>
             </Pressable>
@@ -158,7 +153,7 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.sm,
   },
   titleText: {
@@ -173,10 +168,5 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 12,
     color: colors.soft,
-  },
-  count: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.brand,
   },
 });

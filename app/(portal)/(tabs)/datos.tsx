@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },

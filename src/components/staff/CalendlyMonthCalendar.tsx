@@ -212,35 +212,39 @@ export function CalendlyMonthCalendar({
                 key={event.id}
                 onPress={() => setDetail(event)}
                 style={({ pressed }) => [
-                  styles.eventRow,
+                  styles.eventHit,
                   pressed && styles.eventPressed,
                 ]}
               >
-                <View style={styles.eventTimeCol}>
-                  <Text style={styles.eventTime}>
-                    {formatTime(event.start_time, locale)}
-                  </Text>
-                  <Text style={styles.eventTimeEnd}>
-                    {formatTime(event.end_time, locale)}
-                  </Text>
-                </View>
-                <View style={styles.eventBody}>
-                  <Text style={styles.eventName} numberOfLines={2}>
-                    {event.invitee_name
-                      ? `${event.invitee_name} · ${event.name}`
-                      : event.name}
-                  </Text>
-                  {event.invitee_email ? (
-                    <Text style={styles.eventMeta} numberOfLines={1}>
-                      {event.invitee_email}
+                <View style={styles.eventRow}>
+                  <View style={styles.eventTimeCol}>
+                    <Text style={styles.eventTime}>
+                      {formatTime(event.start_time, locale)}
                     </Text>
-                  ) : null}
+                    <Text style={styles.eventTimeEnd}>
+                      {formatTime(event.end_time, locale)}
+                    </Text>
+                  </View>
+                  <View style={styles.eventBody}>
+                    <Text style={styles.eventName} numberOfLines={1}>
+                      {event.invitee_name
+                        ? `${event.invitee_name} · ${event.name}`
+                        : event.name}
+                    </Text>
+                    {event.invitee_email ? (
+                      <Text style={styles.eventMeta} numberOfLines={1}>
+                        {event.invitee_email}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.eventChevron}>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={colors.brownMuted}
+                    />
+                  </View>
                 </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={16}
-                  color={colors.brownMuted}
-                />
               </Pressable>
             ))}
           </ScrollView>
@@ -406,10 +410,12 @@ const styles = StyleSheet.create({
   agendaList: {
     maxHeight: 280,
   },
+  eventHit: {
+    marginBottom: spacing.sm,
+  },
   eventRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
     backgroundColor: colors.white,
     borderRadius: radii.control,
     borderWidth: 1,
@@ -418,14 +424,13 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.brand,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    marginBottom: spacing.sm,
   },
   eventPressed: {
     opacity: 0.92,
   },
   eventTimeCol: {
     width: 54,
-    gap: 2,
+    marginRight: spacing.md,
   },
   eventTime: {
     fontSize: 13,
@@ -438,7 +443,8 @@ const styles = StyleSheet.create({
   },
   eventBody: {
     flex: 1,
-    gap: 2,
+    minWidth: 0,
+    marginRight: spacing.sm,
   },
   eventName: {
     fontSize: 14,
@@ -448,6 +454,12 @@ const styles = StyleSheet.create({
   eventMeta: {
     fontSize: 12,
     color: colors.soft,
+    marginTop: 2,
+  },
+  eventChevron: {
+    width: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalBackdrop: {
     flex: 1,

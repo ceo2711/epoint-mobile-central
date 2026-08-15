@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -7,6 +7,8 @@ import { UserAvatar } from "@/components/ui/UserAvatar";
 import { useTranslation } from "@/contexts/LanguageContext";
 import type { CalendlySalesRep } from "@/types/api";
 import { colors, spacing } from "@/theme/tokens";
+
+const SUB_CARD_WIDTH = 100;
 
 type SalesRepListProps = {
   reps: CalendlySalesRep[];
@@ -83,52 +85,51 @@ function LeadCard({
         pressed && styles.pressed,
       ]}
     >
-      <View style={styles.leadTop}>
+      <View style={styles.leadRow}>
         <UserAvatar
           firstName={rep.first_name}
           lastName={rep.last_name}
           avatarUrl={rep.avatar_url}
           size={48}
         />
+        <View style={styles.leadText}>
+          <Text style={styles.leadName} numberOfLines={1} ellipsizeMode="tail">
+            {rep.first_name} {rep.last_name}
+          </Text>
+          <Text style={styles.leadEmail} numberOfLines={1} ellipsizeMode="tail">
+            {rep.email}
+          </Text>
+          <View style={styles.leadBadges}>
+            {inactive ? (
+              <View style={styles.badgeInactive}>
+                <Text style={styles.badgeInactiveText}>{t("common.inactive")}</Text>
+              </View>
+            ) : null}
+            {showConnectionStatus ? (
+              <View
+                style={[
+                  styles.connBadge,
+                  rep.connected ? styles.connOn : styles.connOff,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.connBadgeText,
+                    rep.connected ? styles.connOnText : styles.connOffText,
+                  ]}
+                >
+                  {rep.connected ? t("calendly.connected") : t("calendly.notConnected")}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
         <Ionicons
           name="chevron-forward"
           size={18}
           color={inactive ? "#d4a574" : colors.brownMuted}
         />
       </View>
-
-      <Text style={styles.leadName} numberOfLines={1}>
-        {rep.first_name} {rep.last_name}
-      </Text>
-      <Text style={styles.leadEmail} numberOfLines={1}>
-        {rep.email}
-      </Text>
-
-      {inactive ? (
-        <View style={styles.badgeInactive}>
-          <Text style={styles.badgeInactiveText}>{t("common.inactive")}</Text>
-        </View>
-      ) : null}
-
-      {showConnectionStatus ? (
-        <View
-          style={[
-            styles.connBadge,
-            rep.connected ? styles.connOn : styles.connOff,
-          ]}
-        >
-          <Text
-            style={[
-              styles.connBadgeText,
-              rep.connected ? styles.connOnText : styles.connOffText,
-            ]}
-          >
-            {rep.connected ? t("calendly.connected") : t("calendly.notConnected")}
-          </Text>
-        </View>
-      ) : (
-        <Text style={styles.viewHint}>{t("common.go")}</Text>
-      )}
     </Pressable>
   );
 }
@@ -144,26 +145,17 @@ function SubCard({
 }) {
   const { t } = useTranslation();
   const inactive = rep.is_active === false;
+  const fullName = `${rep.first_name} ${rep.last_name}`.trim();
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() => onSelect(rep.id)}
-      style={({ pressed }) => [
-        styles.subCard,
-        inactive && styles.subCardInactive,
-        pressed && styles.pressed,
-      ]}
-    >
-      <UserAvatar
-        firstName={rep.first_name}
-        lastName={rep.last_name}
-        avatarUrl={rep.avatar_url}
-        size={32}
-      />
-      <View style={styles.subText}>
-        <Text style={styles.subName} numberOfLines={1}>
-          {rep.first_name} {rep.last_name}
+    <View style={[styles.subCard, inactive && styles.subCardInactive]}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => onSelect(rep.id)}
+        style={({ pressed }) => [styles.subCardPress, pressed && styles.pressed]}
+      >
+        <Text style={styles.subName} numberOfLines={1} ellipsizeMode="tail">
+          {fullName}
         </Text>
         <View style={styles.subBadges}>
           <View style={[styles.subBadge, inactive && styles.subBadgeInactive]}>
@@ -172,15 +164,19 @@ function SubCard({
                 styles.subBadgeText,
                 inactive && styles.subBadgeInactiveText,
               ]}
+              numberOfLines={1}
             >
               {t("calendly.subSellerBadge")}
             </Text>
           </View>
-          {inactive ? (
-            <View style={styles.badgeInactive}>
-              <Text style={styles.badgeInactiveText}>{t("common.inactive")}</Text>
-            </View>
-          ) : null}
+          <View style={inactive ? styles.badgeInactive : styles.badgeActive}>
+            <Text
+              style={inactive ? styles.badgeInactiveText : styles.badgeActiveText}
+              numberOfLines={1}
+            >
+              {inactive ? t("common.inactive") : t("common.active")}
+            </Text>
+          </View>
         </View>
         {showConnectionStatus ? (
           <Text
@@ -189,17 +185,42 @@ function SubCard({
               rep.connected ? styles.connOnText : styles.connOffText,
             ]}
             numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {rep.connected ? t("calendly.connected") : t("calendly.notConnected")}
           </Text>
         ) : null}
-      </View>
-      <Ionicons
-        name="chevron-forward"
-        size={16}
-        color={inactive ? "#d4a574" : colors.brownMuted}
-      />
-    </Pressable>
+      </Pressable>
+    </View>
+  );
+}
+
+function SubSellersRow({
+  items,
+  onSelect,
+  showConnectionStatus,
+}: {
+  items: CalendlySalesRep[];
+  onSelect: (id: number) => void;
+  showConnectionStatus: boolean;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      nestedScrollEnabled
+      directionalLockEnabled
+      showsHorizontalScrollIndicator
+      contentContainerStyle={styles.subsList}
+    >
+      {items.map((sub) => (
+        <SubCard
+          key={sub.id}
+          rep={sub}
+          onSelect={onSelect}
+          showConnectionStatus={showConnectionStatus}
+        />
+      ))}
+    </ScrollView>
   );
 }
 
@@ -242,16 +263,11 @@ export function SalesRepList({
                       count: subSellers.length,
                     })}
                   </Text>
-                  <View style={styles.subsList}>
-                    {subSellers.map((sub) => (
-                      <SubCard
-                        key={sub.id}
-                        rep={sub}
-                        onSelect={onSelect}
-                        showConnectionStatus={showConnectionStatus}
-                      />
-                    ))}
-                  </View>
+                  <SubSellersRow
+                    items={subSellers}
+                    onSelect={onSelect}
+                    showConnectionStatus={showConnectionStatus}
+                  />
                 </View>
               ) : (
                 <View style={styles.noSubsBox}>
@@ -265,16 +281,11 @@ export function SalesRepList({
         {orphanSubs.length > 0 ? (
           <View style={styles.teamBox}>
             <Text style={styles.subsLabel}>{t("calendly.orphanSubSellers")}</Text>
-            <View style={styles.subsList}>
-              {orphanSubs.map((sub) => (
-                <SubCard
-                  key={sub.id}
-                  rep={sub}
-                  onSelect={onSelect}
-                  showConnectionStatus={showConnectionStatus}
-                />
-              ))}
-            </View>
+            <SubSellersRow
+              items={orphanSubs}
+              onSelect={onSelect}
+              showConnectionStatus={showConnectionStatus}
+            />
           </View>
         ) : null}
       </View>
@@ -314,8 +325,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: "#cfc7bc",
-    padding: spacing.lg,
-    gap: spacing.sm,
+    padding: spacing.md,
     shadowColor: "#5c4033",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -329,10 +339,16 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.94,
   },
-  leadTop: {
+  leadRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  leadText: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: spacing.md,
+    marginRight: spacing.sm,
+    gap: 2,
   },
   leadName: {
     fontSize: 16,
@@ -343,15 +359,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.soft,
   },
-  viewHint: {
-    marginTop: spacing.sm,
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.brand,
+  leadBadges: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
   },
   connBadge: {
     alignSelf: "flex-start",
-    marginTop: spacing.sm,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -375,7 +391,6 @@ const styles = StyleSheet.create({
     color: colors.soft,
   },
   badgeInactive: {
-    alignSelf: "flex-start",
     backgroundColor: "#fde68a",
     borderRadius: 999,
     paddingHorizontal: 8,
@@ -385,6 +400,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: "#92400e",
+    textTransform: "uppercase",
+  },
+  badgeActive: {
+    backgroundColor: "#d1fae5",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeActiveText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#047857",
     textTransform: "uppercase",
   },
   subsBlock: {
@@ -398,38 +425,42 @@ const styles = StyleSheet.create({
     color: colors.brownMuted,
   },
   subsList: {
+    flexDirection: "row",
+    alignItems: "stretch",
     gap: spacing.sm,
+    paddingVertical: 2,
+    paddingRight: spacing.sm,
   },
   subCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: "#f3f1ed",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#ddd6cc",
-    borderLeftWidth: 3,
-    borderLeftColor: colors.brand,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    width: SUB_CARD_WIDTH,
+    flexShrink: 0,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.brown,
+    backgroundColor: colors.white,
+    overflow: "hidden",
   },
   subCardInactive: {
-    backgroundColor: "#fff7ed",
-    borderColor: "#f5d0a9",
-    borderLeftColor: "#f59e0b",
+    backgroundColor: "#fffaf0",
+    borderColor: "#b45309",
   },
-  subText: {
-    flex: 1,
-    gap: 3,
+  subCardPress: {
+    paddingHorizontal: 8,
+    paddingVertical: spacing.sm,
+    alignItems: "center",
+    gap: 6,
   },
   subName: {
+    width: "100%",
     fontSize: 13,
     fontWeight: "700",
     color: colors.ink,
+    textAlign: "center",
   },
   subBadges: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    width: "100%",
+    flexDirection: "column",
+    alignItems: "center",
     gap: 4,
   },
   subBadge: {
@@ -451,8 +482,10 @@ const styles = StyleSheet.create({
     color: "#92400e",
   },
   subConn: {
+    width: "100%",
     fontSize: 11,
     fontWeight: "600",
+    textAlign: "center",
   },
   noSubsBox: {
     borderRadius: 10,

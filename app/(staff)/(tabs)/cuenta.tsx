@@ -160,9 +160,6 @@ export default function CuentaScreen() {
               <Text style={styles.meta}>
                 {t("common.phone")}: {user?.phone || t("common.dash")}
               </Text>
-              <Text style={styles.meta}>
-                {t("common.role")}: {user?.role.name}
-              </Text>
               {profileError ? <Text style={styles.error}>{profileError}</Text> : null}
               {profileOk ? <Text style={styles.ok}>{profileOk}</Text> : null}
               <Button
@@ -181,7 +178,6 @@ export default function CuentaScreen() {
               <Text style={styles.meta}>
                 {t("common.phone")}: {user?.phone || t("common.dash")}
               </Text>
-              <Text style={styles.meta}>{user?.role.name}</Text>
               {user?.active_merchant ? (
                 <Text style={styles.merchant}>
                   {t("account.merchantLabel")}: {user.active_merchant.name}

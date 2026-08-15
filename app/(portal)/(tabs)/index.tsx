@@ -44,7 +44,7 @@ const STEPS = [
 ] as const;
 
 export default function PortalHomeScreen() {
-  const { token, user, isLoading: authLoading } = useAuth();
+  const { token, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
   const boardUnlocked = usePortalBoardUnlocked();
@@ -91,8 +91,6 @@ export default function PortalHomeScreen() {
     return <ScreenState loading message={t("portal.loading")} />;
   }
 
-  const firstName = (client?.first_name || user?.first_name || "").trim();
-
   return (
     <ScrollView
       style={styles.wrap}
@@ -108,11 +106,6 @@ export default function PortalHomeScreen() {
         />
       }
     >
-      <Text style={styles.title}>
-        {firstName ? t("portal.welcomeNamed", { name: firstName }) : t("portal.welcome")}
-      </Text>
-      <Text style={styles.subtitle}>{t("portal.subtitle")}</Text>
-
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.sectionLabel}>{t("portal.nextSteps")}</Text>
@@ -171,19 +164,7 @@ const styles = StyleSheet.create({
     // Deja libre la zona del botón flotante del chat.
     paddingBottom: 130,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.brown,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.soft,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
   sectionLabel: {
-    marginTop: 8,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.8,

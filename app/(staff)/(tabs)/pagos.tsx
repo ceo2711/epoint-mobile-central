@@ -10,7 +10,7 @@ import {
 import * as WebBrowser from "expo-web-browser";
 
 import { SalesRepList } from "@/components/staff/SalesRepList";
-import { ScopeBackButton } from "@/components/staff/ScopeBackButton";
+import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
 import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -97,8 +97,11 @@ export default function PagosScreen() {
   if (scope.isGlobal && scope.showRepPicker) {
     return (
       <ScrollView style={styles.wrap} contentContainerStyle={styles.pickerContent}>
-        <ScopeBackButton label={t("scope.backToSedes")} onPress={scope.clearSede} />
-        <Text style={styles.title}>{t("payments.title")}</Text>
+        <ScopePageHeader
+          title={t("payments.title")}
+          backLabel={t("scope.backToSedes")}
+          onBack={scope.clearSede}
+        />
         <Text style={styles.subtitle}>
           {scope.selectedSede
             ? t("scope.selectedSede", { name: scope.selectedSede.name })
@@ -131,10 +134,11 @@ export default function PagosScreen() {
 
   return (
     <View style={styles.wrap}>
-      {scope.isGlobal ? (
-        <ScopeBackButton label={t("scope.backToReps")} onPress={scope.clearRep} />
-      ) : null}
-      <Text style={styles.title}>{t("payments.title")}</Text>
+      <ScopePageHeader
+        title={t("payments.title")}
+        backLabel={scope.isGlobal ? t("scope.backToReps") : undefined}
+        onBack={scope.isGlobal ? scope.clearRep : undefined}
+      />
       <Text style={styles.subtitle}>
         {[configMessage, scope.selectedSede?.name, repName].filter(Boolean).join(" · ")}
       </Text>
@@ -210,7 +214,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },

@@ -83,11 +83,6 @@ export default function PortalCuentaScreen() {
           </Text>
           <Text style={styles.meta}>{user?.email}</Text>
           {user?.phone ? <Text style={styles.meta}>{user.phone}</Text> : null}
-          {user?.role ? (
-            <Text style={styles.meta}>
-              {t("common.role")}: {user.role.name}
-            </Text>
-          ) : null}
         </Card>
 
         <Section title={t("account.passwordTitle")}>
@@ -145,7 +140,7 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "700",
     color: colors.brown,
   },
