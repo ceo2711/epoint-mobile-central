@@ -92,6 +92,8 @@ export interface User {
   avatar_url?: string | null;
   permissions?: string[];
   client_id?: number | null;
+  parent_user_id?: number | null;
+  parent?: { id: number; first_name: string; last_name: string; email: string } | null;
   merchants?: MerchantBrief[];
   active_merchant_id?: number | null;
   active_merchant?: MerchantBrief | null;
@@ -169,7 +171,7 @@ export interface DocumentBrief {
   mime_type?: string | null;
   download_url?: string | null;
   expires_at: string | null;
-  uploaded_at: string;
+  uploaded_at?: string | null;
   rejection_reasons?: LocalizedStringList | null;
   approval_reasons?: LocalizedStringList | null;
 }
@@ -261,6 +263,8 @@ export interface ClientSourceProspect {
     id?: number;
     subject?: string;
     status?: string;
+    signer_name?: string;
+    signer_email?: string;
     sent_at?: string;
     completed_at?: string | null;
   } | null;
@@ -268,6 +272,8 @@ export interface ClientSourceProspect {
     id?: number;
     subject?: string;
     status?: string;
+    signer_name?: string;
+    signer_email?: string;
     sent_at?: string;
     completed_at?: string | null;
   }[];
@@ -278,7 +284,17 @@ export interface ClientSourceProspect {
     status?: string;
     payment_url?: string;
     paid_at?: string | null;
+    created_at?: string;
   } | null;
+  payment_links?: {
+    id?: number;
+    amount?: string;
+    currency?: string;
+    status?: string;
+    payment_url?: string;
+    paid_at?: string | null;
+    created_at?: string;
+  }[];
   [key: string]: unknown;
 }
 
@@ -331,6 +347,24 @@ export interface ClientAvailability {
   available: boolean;
   email: ClientConflict | null;
   phone: ClientConflict | null;
+}
+
+export interface ProspectContactConflict extends ClientConflict {
+  kind: "client" | "prospect";
+}
+
+export interface ProspectAvailability {
+  available: boolean;
+  email: ProspectContactConflict | null;
+  phone: ProspectContactConflict | null;
+}
+
+export interface InfluencerBrief {
+  id: number;
+  name: string;
+  handle: string | null;
+  sales_rep_user_id: number;
+  sales_rep_name: string | null;
 }
 
 export interface ClientBulkDeleteFailure {
@@ -402,6 +436,38 @@ export interface AreaMetrics {
   conversion_rate: number | null;
   by_status: StatusCount[];
   by_source?: SourceCount[];
+  monthly_paid_total?: number | null;
+  monthly_commission?: number | null;
+  commission_per_sale?: number | null;
+  monthly_paid_count?: number | null;
+}
+
+export interface WeekdaySalesPoint {
+  weekday: number;
+  paid_count: number;
+  paid_amount: number;
+}
+
+export interface SalesRepLeaderboardItem {
+  user_id: number;
+  first_name: string;
+  last_name: string;
+  paid_count: number;
+  paid_amount: number;
+  commission: number;
+}
+
+export interface SalesLeadershipMetrics {
+  active_sales_reps: number;
+  team_monthly_paid_count: number;
+  team_monthly_paid_total: number;
+  team_monthly_commission: number;
+  commission_per_sale: number;
+  weekday_sales: WeekdaySalesPoint[];
+  best_weekday: number | null;
+  best_weekday_paid_count: number;
+  best_weekday_paid_amount: number;
+  leaderboard: SalesRepLeaderboardItem[];
 }
 
 export interface DashboardMetrics {
@@ -413,6 +479,7 @@ export interface DashboardMetrics {
   registrations?: TimeseriesPoint[];
   prospect_registrations?: TimeseriesPoint[];
   completions?: TimeseriesPoint[];
+  sales_leadership?: SalesLeadershipMetrics | null;
 }
 
 export type ProspectStatus =
@@ -434,6 +501,8 @@ export interface Prospect {
   email: string;
   phone: string;
   source: string | null;
+  influencer_id?: number | null;
+  influencer_name?: string | null;
   notes: string | null;
   converted_client_id: number | null;
   calendly_event_id: number | null;
@@ -456,33 +525,44 @@ export interface ProspectHistoryEntry {
   created_at: string;
 }
 
+export interface ProspectCalendlyBrief {
+  id: number;
+  name: string;
+  status: string;
+  start_time: string;
+  end_time: string;
+  invitee_name: string | null;
+  invitee_email: string | null;
+  meeting_url: string | null;
+}
+
+export interface ProspectEnvelopeBrief {
+  id: number;
+  subject: string;
+  status: string;
+  signer_name?: string;
+  signer_email?: string;
+  sent_at: string;
+  completed_at: string | null;
+}
+
+export interface ProspectPaymentBrief {
+  id: number;
+  amount: string;
+  currency: string;
+  status: string;
+  payment_url: string;
+  paid_at: string | null;
+  created_at?: string;
+}
+
 export interface ProspectDetail extends Prospect {
   history: ProspectHistoryEntry[];
-  calendly_event?: {
-    id: number;
-    name: string;
-    status: string;
-    start_time: string;
-    end_time: string;
-    invitee_name: string | null;
-    invitee_email: string | null;
-    meeting_url: string | null;
-  } | null;
-  docusign_envelope?: {
-    id: number;
-    subject: string;
-    status: string;
-    sent_at: string;
-    completed_at: string | null;
-  } | null;
-  payment_link?: {
-    id: number;
-    amount: string;
-    currency: string;
-    status: string;
-    payment_url: string;
-    paid_at: string | null;
-  } | null;
+  calendly_event?: ProspectCalendlyBrief | null;
+  docusign_envelope?: ProspectEnvelopeBrief | null;
+  docusign_envelopes?: ProspectEnvelopeBrief[];
+  payment_link?: ProspectPaymentBrief | null;
+  payment_links?: ProspectPaymentBrief[];
 }
 
 export interface CalendlyConnection {
@@ -512,6 +592,14 @@ export interface CalendlySyncResponse {
   last_synced_at: string;
 }
 
+export interface CalendlyEventType {
+  uri: string;
+  name: string;
+  duration: number;
+  scheduling_url: string | null;
+  description?: string | null;
+}
+
 export interface DocusignConnection {
   connected: boolean;
   account_id: string | null;
@@ -536,6 +624,7 @@ export interface PaymentConfig {
   payments_enabled: boolean;
   default_provider: string;
   stub_mode: boolean;
+  payment_test?: boolean;
   providers: { provider: string; configured: boolean; label: string }[];
 }
 
@@ -554,6 +643,7 @@ export interface PaymentLink {
   paid_at: string | null;
   created_at: string;
   created_by_name: string | null;
+  prospect_id?: number | null;
 }
 
 export interface Notification {

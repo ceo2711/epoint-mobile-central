@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
+  BackHandler,
   Dimensions,
   Easing,
   Image,
@@ -120,7 +121,8 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const { isBackGestureSuppressed } = useBackGestureController();
+  const { isBackGestureSuppressed, hasInScreenBack, runInScreenBack } =
+    useBackGestureController();
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(DRAWER_HIDDEN_X)).current;
@@ -199,14 +201,19 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
   const canPopStack = router.canGoBack();
   // iOS: gesto nativo interactivo del Stack. Android: borde custom → router.back().
   // Si hay Kanban (u otra vista con scroll horizontal), silenciamos ambos.
+  // Un atrás in-screen (p. ej. métricas de un vendedor) gana al pop nativo.
   const useNativePopGesture =
-    canPopStack && Platform.OS === "ios" && !isBackGestureSuppressed;
+    canPopStack &&
+    Platform.OS === "ios" &&
+    !isBackGestureSuppressed &&
+    !hasInScreenBack;
   const customBackEnabled =
-    !isHomePath(pathname, homeHref) &&
+    (hasInScreenBack || !isHomePath(pathname, homeHref)) &&
     !useNativePopGesture &&
     !isBackGestureSuppressed;
 
   const onBack = useCallback(() => {
+    if (runInScreenBack()) return;
     if (isHomePath(pathname, homeHref)) return;
 
     // Preferir pop del stack: conserva la vista anterior (p. ej. Tablero → Cuenta → atrás)
@@ -223,7 +230,16 @@ function AppShellInner({ children, accountHref, homeHref }: AppShellProps) {
     }
 
     router.replace(homeHref as never);
-  }, [router, pathname, navItems, homeHref]);
+  }, [router, pathname, navItems, homeHref, runInScreenBack]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (isBackGestureSuppressed) return false;
+      if (runInScreenBack()) return true;
+      return false;
+    });
+    return () => sub.remove();
+  }, [isBackGestureSuppressed, runInScreenBack]);
 
   function onUser() {
     if (onAccountScreen) return;

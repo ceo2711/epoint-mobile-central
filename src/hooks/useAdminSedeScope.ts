@@ -6,18 +6,20 @@ import {
   filterRepsBySede,
   type SedeBranchCard,
 } from "@/features/sedes/utils/sedeBranches";
-import { isGlobalAdmin } from "@/lib/roles";
+import { canSuperviseSalesReps, isGlobalAdmin } from "@/lib/roles";
 import {
   fetchCalendlySalesReps,
   fetchSedes,
 } from "@/lib/staffScope";
-import type { CalendlySalesRep, Sede } from "@/types/api";
+import type { CalendlySalesRep, Sede, SedeBrief } from "@/types/api";
 
 type UseAdminSedeScopeOptions = {
   /** Si false, no carga catálogo (p.ej. usuario no-admin). Default true. */
   enabled?: boolean;
   /** También cargar vendedores (calendario/contratos/pagos). Default true. */
   loadReps?: boolean;
+  /** Si se pasa, fuerza si hay que elegir vendedor. Default: canSupervise. */
+  pickRep?: boolean;
 };
 
 export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
@@ -25,6 +27,9 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
   const loadReps = options?.loadReps ?? true;
   const { token, user, hasPermission } = useAuth();
   const isGlobal = isGlobalAdmin(user?.role.code);
+  const canSupervise = canSuperviseSalesReps(user);
+  /** Admin, gerente o jefe de ventas: hay que elegir un vendedor (salvo herramientas propias). */
+  const needsRepPicker = options?.pickRep ?? canSupervise;
 
   const [selectedSedeId, setSelectedSedeId] = useState<number | null>(null);
   const [selectedRepId, setSelectedRepId] = useState<number | null>(null);
@@ -33,7 +38,11 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const shouldLoad = Boolean(enabled && isGlobal && token);
+  const shouldLoadSedes = Boolean(enabled && isGlobal && token);
+  const shouldLoadReps = Boolean(
+    enabled && loadReps && token && (isGlobal || canSupervise),
+  );
+  const shouldLoad = shouldLoadSedes || shouldLoadReps;
 
   const reload = useCallback(async () => {
     if (!token || !shouldLoad) {
@@ -44,10 +53,12 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
     setLoading(true);
     setError(null);
     try {
-      const canReadSedes = hasPermission("sedes:read");
+      const canReadSedes = shouldLoadSedes && hasPermission("sedes:read");
       const [sedeList, reps] = await Promise.all([
         canReadSedes ? fetchSedes(token) : Promise.resolve([] as Sede[]),
-        loadReps ? fetchCalendlySalesReps(token) : Promise.resolve([] as CalendlySalesRep[]),
+        shouldLoadReps
+          ? fetchCalendlySalesReps(token)
+          : Promise.resolve([] as CalendlySalesRep[]),
       ]);
       setSedes(sedeList);
       setSalesReps(reps);
@@ -58,7 +69,7 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
     } finally {
       setLoading(false);
     }
-  }, [token, shouldLoad, hasPermission, loadReps]);
+  }, [token, shouldLoad, shouldLoadSedes, shouldLoadReps, hasPermission]);
 
   useEffect(() => {
     void reload();
@@ -78,6 +89,8 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
     [branches, selectedSedeId],
   );
 
+  const ownSede: SedeBrief | null = user?.sede ?? null;
+
   const repsForSelectedSede = useMemo(
     () =>
       filterRepsBySede(salesReps, selectedSedeId, {
@@ -93,7 +106,9 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
 
   const showSedePicker = isGlobal && selectedSedeId === null;
   const showRepPicker =
-    isGlobal && selectedSedeId != null && selectedRepId === null;
+    needsRepPicker &&
+    selectedRepId === null &&
+    (!isGlobal || selectedSedeId != null);
 
   const selectSede = useCallback((id: number) => {
     setSelectedSedeId(id);
@@ -115,12 +130,15 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
 
   return {
     isGlobal,
+    canSupervise,
+    needsRepPicker,
     showSedePicker,
     showRepPicker,
     selectedSedeId,
     selectedRepId,
     selectedSede,
     selectedRep,
+    ownSede,
     branches,
     salesReps,
     repsForSelectedSede,

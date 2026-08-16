@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useInScreenBack } from "@/components/shell/BackGestureContext";
 import { colors, spacing } from "@/theme/tokens";
 
 type ScopeBackButtonProps = {
@@ -14,11 +15,12 @@ export function ScopeBackButton({ label, onPress }: ScopeBackButtonProps) {
       accessibilityRole="button"
       activeOpacity={0.7}
       onPress={onPress}
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 12 }}
       style={styles.hit}
     >
+      <Ionicons name="arrow-back" size={18} color={colors.brand} />
       <Text style={styles.backLabel} numberOfLines={1}>
-        <Ionicons name="arrow-back" size={16} color={colors.brand} />
-        {`  ${label}`}
+        {label}
       </Text>
     </TouchableOpacity>
   );
@@ -32,11 +34,12 @@ type ScopePageHeaderProps = {
 
 export function ScopePageHeader({ title, backLabel, onBack }: ScopePageHeaderProps) {
   const showBack = Boolean(backLabel && onBack);
+  useInScreenBack(showBack ? onBack : undefined);
 
   return (
     <View style={styles.header}>
       {showBack ? <ScopeBackButton label={backLabel!} onPress={onBack!} /> : null}
-      <Text style={styles.title} numberOfLines={1}>
+      <Text style={styles.title} numberOfLines={2}>
         {title}
       </Text>
     </View>
@@ -45,25 +48,25 @@ export function ScopePageHeader({ title, backLabel, onBack }: ScopePageHeaderPro
 
 const styles = StyleSheet.create({
   hit: {
-    flexShrink: 1,
-    minWidth: 0,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 4,
+    minHeight: 32,
   },
   backLabel: {
+    flexShrink: 1,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
     color: colors.brand,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    minHeight: 32,
+    gap: 4,
     marginBottom: spacing.sm,
   },
   title: {
-    flexShrink: 0,
-    marginLeft: spacing.sm,
     fontSize: 22,
     fontWeight: "700",
     color: colors.brown,

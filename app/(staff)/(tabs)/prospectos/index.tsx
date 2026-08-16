@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -13,20 +13,61 @@ import { useRouter } from "expo-router";
 
 import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
 import { SedeBranchList } from "@/components/staff/SedeBranchList";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { ProspectCreateModal } from "@/features/prospects/ProspectCreateModal";
 import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
+import { canSell, isSalesAreaLeader } from "@/lib/roles";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
-import type { Paginated, Prospect } from "@/types/api";
+import type { CalendlySalesRep, Paginated, Prospect } from "@/types/api";
 import { PROSPECT_STATUS_LABELS } from "@/types/api";
-import { colors, radii } from "@/theme/tokens";
+import { colors, radii, spacing } from "@/theme/tokens";
+
+function salesRepName(rep: CalendlySalesRep): string {
+  return `${rep.first_name} ${rep.last_name}`.trim() || rep.email;
+}
+
+function isSubSeller(rep: CalendlySalesRep): boolean {
+  return rep.parent_user_id != null;
+}
+
+function salesRepChipLabel(
+  rep: CalendlySalesRep,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const name = salesRepName(rep);
+  if (rep.parent_name) {
+    return `${name} (${t("calendly.subSellerOf", { name: rep.parent_name })})`;
+  }
+  if (rep.is_active === false) {
+    return `${name} (${t("catalog.inactive")})`;
+  }
+  return name;
+}
+
+function prospectSellerLabel(
+  item: Prospect,
+  salesReps: CalendlySalesRep[],
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const person = item.assigned_to;
+  if (!person) return "—";
+  const name =
+    `${person.first_name} ${person.last_name}`.trim() || person.email || "—";
+  const rep = salesReps.find((row) => row.id === item.assigned_to_user_id);
+  if (rep?.parent_name) {
+    return `${name} (${t("calendly.subSellerOf", { name: rep.parent_name })})`;
+  }
+  return name;
+}
 
 export default function ProspectosScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { token, isLoading: authLoading } = useAuth();
+  const { token, user, hasPermission, isLoading: authLoading } = useAuth();
   const scope = useAdminSedeScope({ loadReps: true });
   const [items, setItems] = useState<Prospect[]>([]);
   const [total, setTotal] = useState(0);
@@ -35,6 +76,20 @@ export default function ProspectosScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [salesRepId, setSalesRepId] = useState<number | null>(null);
+
+  const canCreate = canSell(user) && hasPermission("prospects:create");
+  const showSalesRepFilter = isSalesAreaLeader(user);
+  const salesReps = scope.isGlobal ? scope.repsForSelectedSede : scope.salesReps;
+  const titularReps = useMemo(
+    () => salesReps.filter((rep) => !isSubSeller(rep)),
+    [salesReps],
+  );
+  const subSellerReps = useMemo(
+    () => salesReps.filter(isSubSeller),
+    [salesReps],
+  );
 
   const listEnabled = !scope.isGlobal || scope.selectedSedeId != null;
 
@@ -58,6 +113,9 @@ export default function ProspectosScreen() {
         if (scope.isGlobal && scope.selectedSedeId != null) {
           params.set("sede_id", String(scope.selectedSedeId));
         }
+        if (showSalesRepFilter && salesRepId != null) {
+          params.set("sales_rep_id", String(salesRepId));
+        }
         const data = await api.get<Paginated<Prospect>>(
           `/prospects?${params.toString()}`,
           token,
@@ -71,7 +129,7 @@ export default function ProspectosScreen() {
         setRefreshing(false);
       }
     },
-    [token, query, listEnabled, scope.isGlobal, scope.selectedSedeId],
+    [token, query, listEnabled, scope.isGlobal, scope.selectedSedeId, showSalesRepFilter, salesRepId],
   );
 
   useEffect(() => {
@@ -82,6 +140,10 @@ export default function ProspectosScreen() {
     const handle = setTimeout(() => setQuery(search), 350);
     return () => clearTimeout(handle);
   }, [search]);
+
+  useEffect(() => {
+    setSalesRepId(null);
+  }, [scope.selectedSedeId]);
 
   if (authLoading || scope.loading) {
     return <ScreenState loading message="Cargando prospectos…" />;
@@ -121,7 +183,70 @@ export default function ProspectosScreen() {
         style={styles.search}
       />
 
+      {showSalesRepFilter ? (
+        <View style={styles.filtersBlock}>
+          <Text style={styles.filterSectionLabel}>
+            {t("calendly.salesRepsTitle")}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsRow}
+          >
+            <FilterChip
+              label={t("scope.allReps")}
+              active={salesRepId == null}
+              onPress={() => setSalesRepId(null)}
+            />
+            {user ? (
+              <FilterChip
+                label={t("common.assignToMe")}
+                active={salesRepId === user.id}
+                onPress={() => setSalesRepId(user.id)}
+              />
+            ) : null}
+            {titularReps.map((rep) => (
+              <FilterChip
+                key={rep.id}
+                label={salesRepChipLabel(rep, t)}
+                active={salesRepId === rep.id}
+                onPress={() => setSalesRepId(rep.id)}
+              />
+            ))}
+          </ScrollView>
+          {subSellerReps.length > 0 ? (
+            <>
+              <Text style={styles.filterSectionLabel}>
+                {t("calendly.subSellersTitle")}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipsRow}
+              >
+                {subSellerReps.map((rep) => (
+                  <FilterChip
+                    key={rep.id}
+                    label={salesRepChipLabel(rep, t)}
+                    active={salesRepId === rep.id}
+                    onPress={() => setSalesRepId(rep.id)}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {canCreate ? (
+        <Button
+          title={t("prospects.create")}
+          onPress={() => setFormOpen(true)}
+          style={{ marginBottom: 10 }}
+        />
+      ) : null}
 
       <FlatList
         data={items}
@@ -159,11 +284,49 @@ export default function ProspectosScreen() {
               </View>
               <Text style={styles.meta}>{item.email}</Text>
               {item.phone ? <Text style={styles.meta}>{item.phone}</Text> : null}
+              {showSalesRepFilter ? (
+                <Text style={styles.metaMuted}>
+                  {t("prospects.salesRep")}: {prospectSellerLabel(item, salesReps, t)}
+                </Text>
+              ) : null}
             </Card>
           </Pressable>
         )}
       />
+      {canCreate && user ? (
+        <ProspectCreateModal
+          visible={formOpen}
+          token={token}
+          user={user}
+          salesReps={scope.isGlobal ? scope.repsForSelectedSede : scope.salesReps}
+          onClose={() => setFormOpen(false)}
+          onCreated={() => {
+            void load({ silent: true });
+          }}
+        />
+      ) : null}
     </View>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.chip, active ? styles.chipActive : null]}
+    >
+      <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -232,6 +395,45 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.soft,
     marginTop: 4,
+  },
+  metaMuted: {
+    fontSize: 12,
+    color: colors.brownMuted,
+    marginTop: 4,
+  },
+  filtersBlock: {
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  chipsRow: {
+    gap: spacing.sm,
+    paddingVertical: 2,
+  },
+  filterSectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.brownMuted,
+    letterSpacing: 0.2,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+  },
+  chipActive: {
+    backgroundColor: colors.brandLight,
+    borderColor: colors.brand,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brownSoft,
+  },
+  chipTextActive: {
+    color: colors.brand,
   },
   empty: {
     textAlign: "center",

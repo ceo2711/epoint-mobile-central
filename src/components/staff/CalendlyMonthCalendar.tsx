@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Linking,
   Modal,
   Pressable,
@@ -17,10 +18,18 @@ import { colors, radii, spacing } from "@/theme/tokens";
 type CalendlyMonthCalendarProps = {
   events: CalendlyEvent[];
   locale?: "es" | "en";
+  loadingMonth?: boolean;
+  onMonthChange?: (range: { start: string; end: string }) => void;
 };
 
 const WEEKDAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const WEEKDAYS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export function monthUtcRange(year: number, month: number): { start: string; end: string } {
+  const start = new Date(year, month, 1, 0, 0, 0, 0);
+  const end = new Date(year, month + 1, 1, 0, 0, 0, 0);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
 
 function toDayKey(date: Date): string {
   const y = date.getFullYear();
@@ -57,6 +66,8 @@ function buildMonthGrid(year: number, month: number): (Date | null)[] {
 export function CalendlyMonthCalendar({
   events,
   locale = "es",
+  loadingMonth = false,
+  onMonthChange,
 }: CalendlyMonthCalendarProps) {
   const { t } = useTranslation();
   const weekdays = locale === "en" ? WEEKDAYS_EN : WEEKDAYS_ES;
@@ -116,10 +127,12 @@ export function CalendlyMonthCalendar({
   const today = toDayKey(new Date());
 
   function shiftMonth(delta: number) {
-    setCursor((prev) => {
-      const d = new Date(prev.year, prev.month + delta, 1);
-      return { year: d.getFullYear(), month: d.getMonth() };
-    });
+    if (loadingMonth) return;
+    const d = new Date(cursor.year, cursor.month + delta, 1);
+    const next = { year: d.getFullYear(), month: d.getMonth() };
+    setCursor(next);
+    setSelectedDay(toDayKey(d));
+    onMonthChange?.(monthUtcRange(next.year, next.month));
   }
 
   return (
@@ -128,68 +141,82 @@ export function CalendlyMonthCalendar({
         <View style={styles.monthHeader}>
           <Pressable
             accessibilityRole="button"
+            disabled={loadingMonth}
             onPress={() => shiftMonth(-1)}
-            style={styles.navBtn}
+            style={[styles.navBtn, loadingMonth && styles.navBtnDisabled]}
           >
             <Ionicons name="chevron-back" size={20} color={colors.brand} />
           </Pressable>
           <Text style={styles.monthLabel}>{monthLabel}</Text>
           <Pressable
             accessibilityRole="button"
+            disabled={loadingMonth}
             onPress={() => shiftMonth(1)}
-            style={styles.navBtn}
+            style={[styles.navBtn, loadingMonth && styles.navBtnDisabled]}
           >
             <Ionicons name="chevron-forward" size={20} color={colors.brand} />
           </Pressable>
         </View>
 
-        <View style={styles.weekRow}>
-          {weekdays.map((d) => (
-            <Text key={d} style={styles.weekday}>
-              {d}
-            </Text>
-          ))}
-        </View>
+        <View style={styles.gridWrap}>
+          <View style={styles.weekRow}>
+            {weekdays.map((d) => (
+              <Text key={d} style={styles.weekday}>
+                {d}
+              </Text>
+            ))}
+          </View>
 
-        <View style={styles.grid}>
-          {cells.map((date, index) => {
-            if (!date) {
-              return <View key={`empty-${index}`} style={styles.dayCell} />;
-            }
-            const key = toDayKey(date);
-            const selected = key === selectedDay;
-            const isToday = key === today;
-            const hasEvents = (eventsByDay.get(key)?.length ?? 0) > 0;
+          <View style={styles.grid}>
+            {cells.map((date, index) => {
+              if (!date) {
+                return <View key={`empty-${index}`} style={styles.dayCell} />;
+              }
+              const key = toDayKey(date);
+              const selected = key === selectedDay;
+              const isToday = key === today;
+              const hasEvents = (eventsByDay.get(key)?.length ?? 0) > 0;
 
-            return (
-              <Pressable
-                key={key}
-                onPress={() => setSelectedDay(key)}
-                style={[
-                  styles.dayCell,
-                  selected && styles.daySelected,
-                  !selected && isToday && styles.dayToday,
-                ]}
-              >
-                <Text
+              return (
+                <Pressable
+                  key={key}
+                  disabled={loadingMonth}
+                  onPress={() => setSelectedDay(key)}
                   style={[
-                    styles.dayNum,
-                    selected && styles.dayNumSelected,
-                    !selected && isToday && styles.dayNumToday,
+                    styles.dayCell,
+                    selected && styles.daySelected,
+                    !selected && isToday && styles.dayToday,
                   ]}
                 >
-                  {date.getDate()}
-                </Text>
-                {hasEvents ? (
-                  <View
-                    style={[styles.dot, selected && styles.dotSelected]}
-                  />
-                ) : (
-                  <View style={styles.dotSpacer} />
-                )}
-              </Pressable>
-            );
-          })}
+                  <Text
+                    style={[
+                      styles.dayNum,
+                      selected && styles.dayNumSelected,
+                      !selected && isToday && styles.dayNumToday,
+                    ]}
+                  >
+                    {date.getDate()}
+                  </Text>
+                  {hasEvents ? (
+                    <View
+                      style={[styles.dot, selected && styles.dotSelected]}
+                    />
+                  ) : (
+                    <View style={styles.dotSpacer} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {loadingMonth ? (
+            <View style={styles.monthOverlay} pointerEvents="auto">
+              <ActivityIndicator size="large" color={colors.brand} />
+              <Text style={styles.monthOverlayText}>
+                {t("calendar.loadingMonth")}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -203,7 +230,9 @@ export function CalendlyMonthCalendar({
           })}
         </Text>
 
-        {dayEvents.length === 0 ? (
+        {loadingMonth ? (
+          <Text style={styles.emptyDay}>{t("calendar.loadingMonth")}</Text>
+        ) : dayEvents.length === 0 ? (
           <Text style={styles.emptyDay}>{t("calendar.emptyDay")}</Text>
         ) : (
           <ScrollView style={styles.agendaList} nestedScrollEnabled>
@@ -328,6 +357,9 @@ const styles = StyleSheet.create({
   navBtn: {
     padding: spacing.sm,
   },
+  navBtnDisabled: {
+    opacity: 0.35,
+  },
   monthLabel: {
     fontSize: 16,
     fontWeight: "800",
@@ -337,6 +369,9 @@ const styles = StyleSheet.create({
   weekRow: {
     flexDirection: "row",
     marginBottom: spacing.xs,
+  },
+  gridWrap: {
+    position: "relative",
   },
   weekday: {
     width: "14.2857%",
@@ -348,6 +383,19 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
+  },
+  monthOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.78)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 10,
+  },
+  monthOverlayText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.brown,
   },
   dayCell: {
     width: "14.2857%",

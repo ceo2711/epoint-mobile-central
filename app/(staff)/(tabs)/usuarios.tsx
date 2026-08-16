@@ -25,9 +25,11 @@ import { api, getUserFacingErrorMessage } from "@/lib/api";
 import {
   AREA_REQUIRED_ROLE_CODES,
   isGlobalAdmin,
+  isSalesAreaLeader,
   SEDE_REQUIRED_ROLE_CODES,
 } from "@/lib/roles";
 import { fetchSedes } from "@/lib/staffScope";
+import { SalesLeaderVendorsScreen } from "@/features/users/SalesLeaderVendorsScreen";
 import type { Area, Paginated, Role, Sede, User } from "@/types/api";
 import { colors, radii, spacing } from "@/theme/tokens";
 
@@ -97,6 +99,19 @@ function isAreaRequired(roleCode: string | undefined): boolean {
 }
 
 export default function UsuariosScreen() {
+  const { t } = useTranslation();
+  const { user, isLoading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return <ScreenState loading message={`${t("users.title")}…`} />;
+  }
+  if (isSalesAreaLeader(user)) {
+    return <SalesLeaderVendorsScreen />;
+  }
+  return <UsersDirectoryScreen />;
+}
+
+function UsersDirectoryScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { token, user: currentUser, hasPermission, isLoading: authLoading } =
@@ -265,12 +280,14 @@ export default function UsuariosScreen() {
     const [rolesRes, areasRes, sedesRes] = await Promise.allSettled([
       api.get<Role[]>("/roles?include_inactive=true", token),
       api.get<Area[]>("/areas?include_inactive=true", token),
-      fetchSedes(token, { includeInactive: true }),
+      showSedeSelect
+        ? fetchSedes(token, { includeInactive: true })
+        : Promise.resolve([] as Sede[]),
     ]);
     if (rolesRes.status === "fulfilled") setRoles(rolesRes.value);
     if (areasRes.status === "fulfilled") setAreas(areasRes.value);
     if (sedesRes.status === "fulfilled") setSedes(sedesRes.value);
-  }, [token]);
+  }, [token, showSedeSelect]);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -284,7 +301,7 @@ export default function UsuariosScreen() {
         });
         if (query) params.set("search", query);
         if (roleFilter) params.set("role_id", roleFilter);
-        if (sedeFilter) params.set("sede_id", sedeFilter);
+        if (showSedeSelect && sedeFilter) params.set("sede_id", sedeFilter);
 
         const data = await api.get<Paginated<User>>(
           `/users?${params.toString()}`,
@@ -300,7 +317,7 @@ export default function UsuariosScreen() {
         setRefreshing(false);
       }
     },
-    [token, page, query, roleFilter, sedeFilter, t],
+    [token, page, query, roleFilter, sedeFilter, showSedeSelect, t],
   );
 
   useEffect(() => {
@@ -504,16 +521,18 @@ export default function UsuariosScreen() {
             sheetTitle={t("users.filterRole")}
           />
         </View>
-        <View style={styles.filterItem}>
-          <Select
-            label={t("users.filterSede")}
-            value={sedeFilter}
-            options={sedeFilterOptions}
-            onChange={setSedeFilter}
-            placeholder={t("users.allSedes")}
-            sheetTitle={t("users.filterSede")}
-          />
-        </View>
+        {showSedeSelect ? (
+          <View style={styles.filterItem}>
+            <Select
+              label={t("users.filterSede")}
+              value={sedeFilter}
+              options={sedeFilterOptions}
+              onChange={setSedeFilter}
+              placeholder={t("users.allSedes")}
+              sheetTitle={t("users.filterSede")}
+            />
+          </View>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

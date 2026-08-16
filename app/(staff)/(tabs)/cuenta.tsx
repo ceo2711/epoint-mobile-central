@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/Input";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
+import { isSedeRequiredRole } from "@/lib/roles";
 import type { User } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
 
@@ -124,6 +125,7 @@ export default function CuentaScreen() {
   }
 
   const merchants = user?.merchants ?? [];
+  const showSede = isSedeRequiredRole(user?.role.code);
 
   return (
     <KeyboardAvoidingView
@@ -178,6 +180,14 @@ export default function CuentaScreen() {
               <Text style={styles.meta}>
                 {t("common.phone")}: {user?.phone || t("common.dash")}
               </Text>
+              <Text style={styles.meta}>
+                {t("common.role")}: {user?.role.name || t("common.dash")}
+              </Text>
+              {showSede ? (
+                <Text style={styles.meta}>
+                  {t("users.sede")}: {user?.sede?.name || t("users.noSede")}
+                </Text>
+              ) : null}
               {user?.active_merchant ? (
                 <Text style={styles.merchant}>
                   {t("account.merchantLabel")}: {user.active_merchant.name}

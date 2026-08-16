@@ -16,7 +16,10 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { ClientSalesPipelineSection } from "@/features/clients/ClientSalesPipelineSection";
 import {
   canContactClientAdvisor,
   canEditClientProfile,
@@ -43,7 +46,6 @@ import type {
   DocusignEnvelope,
   MerchantBrief,
 } from "@/types/api";
-import { PAYMENT_STATUS_LABELS, PROSPECT_STATUS_LABELS } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
 
 type WorkspaceTab = "resumen" | "documentos" | "tablero";
@@ -82,6 +84,7 @@ export default function ClienteDetailScreen() {
   const { id: idParam } = useLocalSearchParams<{ id: string }>();
   const id = Number(idParam);
   const router = useRouter();
+  const { t, locale } = useTranslation();
   const { token, user, hasPermission, isLoading: authLoading } = useAuth();
 
   const [client, setClient] = useState<Client | null>(null);
@@ -449,13 +452,75 @@ export default function ClienteDetailScreen() {
         />
       }
     >
-      <Text style={styles.title}>
-        {client.first_name} {client.last_name}
-      </Text>
-      <View style={styles.headerMeta}>
-        <StatusBadge status={client.status} />
+      <Text style={styles.eyebrow}>{t("clientDetail.title")}</Text>
+      <ScopePageHeader
+        title={`${client.first_name} ${client.last_name}`}
+        backLabel={t("common.back")}
+        onBack={() => router.back()}
+      />
+      <Text style={styles.email}>{client.email}</Text>
+      <Card>
+        <Text style={styles.sectionLabel}>{t("common.status")}</Text>
+        <View style={styles.headerMeta}>
+          <StatusBadge status={client.status} />
+          <View
+            style={[
+              styles.qualifyBadge,
+              (client.is_qualified ?? prospect?.is_qualified ?? true)
+                ? styles.qualifyYes
+                : styles.qualifyNo,
+            ]}
+          >
+            <Text
+              style={[
+                styles.qualifyText,
+                (client.is_qualified ?? prospect?.is_qualified ?? true)
+                  ? styles.qualifyTextYes
+                  : styles.qualifyTextNo,
+              ]}
+            >
+              {(client.is_qualified ?? prospect?.is_qualified ?? true)
+                ? t("prospects.qualified")
+                : t("prospects.unqualified")}
+            </Text>
+          </View>
+        </View>
         <Text style={styles.idLabel}>ID #{client.id}</Text>
-      </View>
+        {client.rejection_reason ? (
+          <Text style={styles.rejection}>
+            Motivo: {client.rejection_reason}
+          </Text>
+        ) : null}
+      </Card>
+
+      {(!showWorkspace || tab === "resumen") ? (
+        <Card>
+          <Text style={styles.sectionLabel}>{t("clientDetail.overview")}</Text>
+          <View style={styles.infoGrid}>
+            <InfoRow label={t("common.firstName")} value={client.first_name} />
+            <InfoRow label={t("common.lastName")} value={client.last_name} />
+            <InfoRow label={t("common.email")} value={client.email} />
+            <InfoRow label={t("clientDetail.phone")} value={client.phone} />
+            <InfoRow label={t("clients.source")} value={sourceLabel || "—"} />
+            <InfoRow
+              label={t("clients.merchant")}
+              value={client.merchant?.name ?? "—"}
+            />
+            {showWorkspace ? (
+              <>
+                <InfoRow
+                  label={t("clientDetail.dateOfBirth")}
+                  value={formatDate(client.date_of_birth)}
+                />
+                <InfoRow
+                  label={t("clientDetail.hasSsn")}
+                  value={client.has_ssn ? t("common.yes") : t("common.no")}
+                />
+              </>
+            ) : null}
+          </View>
+        </Card>
+      ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -711,6 +776,7 @@ export default function ClienteDetailScreen() {
       {/* Documents / Board tabs */}
       {showWorkspace && tab === "documentos" && token ? (
         <ClientDocumentsPanel
+          key={client.id}
           clientId={client.id}
           token={token}
           initialDocuments={client.documents ?? []}
@@ -728,53 +794,13 @@ export default function ClienteDetailScreen() {
       {/* Overview (always, or when resumen tab) */}
       {(!showWorkspace || tab === "resumen") && (
         <>
-          <Card title="Contacto">
-            <Text style={styles.row}>Email: {client.email}</Text>
-            <Text style={styles.row}>Teléfono: {client.phone}</Text>
-            {sourceLabel ? (
-              <Text style={styles.row}>Fuente: {sourceLabel}</Text>
-            ) : null}
-            {client.merchant ? (
-              <Text style={styles.row}>Comercio: {client.merchant.name}</Text>
-            ) : null}
-            {client.advisor ? (
-              <Text style={styles.row}>
-                Asesor: {client.advisor.first_name} {client.advisor.last_name}
-              </Text>
-            ) : (
-              <Text style={styles.muted}>Sin asesor asignado</Text>
-            )}
-            {client.registered_by ? (
-              <Text style={styles.row}>
-                Registrado por: {client.registered_by.first_name}{" "}
-                {client.registered_by.last_name}
-              </Text>
-            ) : null}
-          </Card>
-
-          <Card title="Línea de tiempo">
-            <Text style={styles.row}>Creado: {formatDateTime(client.created_at)}</Text>
-            <Text style={styles.row}>
-              Aprobado: {formatDateTime(client.approved_at)}
-            </Text>
-            <Text style={styles.row}>
-              Rechazado: {formatDateTime(client.rejected_at)}
-            </Text>
-            {client.rejection_reason ? (
-              <Text style={styles.rejection}>
-                Motivo: {client.rejection_reason}
-              </Text>
-            ) : null}
-          </Card>
-
-          <Card title="Datos personales">
-            <Text style={styles.row}>
-              Fecha de nacimiento: {formatDate(client.date_of_birth)}
-            </Text>
-            <Text style={styles.row}>
-              SSN cargado: {client.has_ssn ? "Sí" : "No"}
-            </Text>
-          </Card>
+          {prospect ? (
+            <ClientSalesPipelineSection
+              sourceProspect={prospect}
+              locale={locale}
+              token={token}
+            />
+          ) : null}
 
           {(client.addresses?.length ?? 0) > 0 ? (
             <Card title="Direcciones">
@@ -796,65 +822,6 @@ export default function ClienteDetailScreen() {
                   #{v.order}: {v.year} {v.model} ({v.color})
                 </Text>
               ))}
-            </Card>
-          ) : null}
-
-          {prospect ? (
-            <Card title="Pipeline comercial">
-              <Text style={styles.row}>
-                Estado:{" "}
-                {PROSPECT_STATUS_LABELS[String(prospect.status ?? "")] ??
-                  String(prospect.status ?? "—")}
-              </Text>
-              {typeof prospect.is_qualified === "boolean" ? (
-                <Text style={styles.row}>
-                  Calificado: {prospect.is_qualified ? "Sí" : "No"}
-                </Text>
-              ) : null}
-              {prospect.calendly_event ? (
-                <View style={styles.block}>
-                  <Text style={styles.optionName}>Calendly</Text>
-                  <Text style={styles.row}>
-                    {String(prospect.calendly_event.name ?? "Reunión")} ·{" "}
-                    {String(prospect.calendly_event.status ?? "")}
-                  </Text>
-                  {prospect.calendly_event.start_time ? (
-                    <Text style={styles.muted}>
-                      {formatDateTime(String(prospect.calendly_event.start_time))}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-              {(prospect.docusign_envelopes?.length ||
-                prospect.docusign_envelope) && (
-                <View style={styles.block}>
-                  <Text style={styles.optionName}>Contrato</Text>
-                  {(prospect.docusign_envelopes ??
-                    (prospect.docusign_envelope
-                      ? [prospect.docusign_envelope]
-                      : [])
-                  ).map((env, idx) => (
-                    <Text
-                      key={String(env.id ?? idx)}
-                      style={styles.row}
-                    >
-                      {String(env.subject ?? "Sobre")} · {String(env.status ?? "")}
-                    </Text>
-                  ))}
-                </View>
-              )}
-              {prospect.payment_link ? (
-                <View style={styles.block}>
-                  <Text style={styles.optionName}>Pago</Text>
-                  <Text style={styles.row}>
-                    {String(prospect.payment_link.amount ?? "")}{" "}
-                    {String(prospect.payment_link.currency ?? "")} ·{" "}
-                    {PAYMENT_STATUS_LABELS[
-                      String(prospect.payment_link.status ?? "")
-                    ] ?? String(prospect.payment_link.status ?? "")}
-                  </Text>
-                </View>
-              ) : null}
             </Card>
           ) : null}
 
@@ -975,6 +942,49 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.brown,
   },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: colors.brownMuted,
+  },
+  email: {
+    fontSize: 14,
+    color: colors.soft,
+    marginTop: -4,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: colors.brownMuted,
+  },
+  infoGrid: {
+    gap: 8,
+  },
+  infoCell: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radii.control,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: colors.brownMuted,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: colors.ink,
+  },
   headerMeta: {
     flexDirection: "row",
     alignItems: "center",
@@ -984,6 +994,29 @@ const styles = StyleSheet.create({
   idLabel: {
     fontSize: 13,
     fontWeight: "600",
+    color: colors.soft,
+    marginTop: 4,
+  },
+  qualifyBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+  },
+  qualifyYes: {
+    backgroundColor: colors.brandLight,
+  },
+  qualifyNo: {
+    backgroundColor: colors.creamWarm,
+  },
+  qualifyText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  qualifyTextYes: {
+    color: colors.brand,
+  },
+  qualifyTextNo: {
     color: colors.soft,
   },
   actionsRow: {
@@ -1084,3 +1117,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 });
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoCell}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value || "—"}</Text>
+    </View>
+  );
+}

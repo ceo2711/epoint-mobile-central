@@ -25,6 +25,11 @@ import {
 } from "@/features/notifications/pushNotifications";
 import { api } from "@/lib/api";
 import type { Notification, Paginated } from "@/types/api";
+import {
+  SaleCongratsModal,
+  isSaleCongratsNotification,
+  isSaleCongratsPayload,
+} from "@/features/notifications/SaleCongratsModal";
 
 interface NotificationsContextValue {
   unreadCount: number;
@@ -34,6 +39,7 @@ interface NotificationsContextValue {
   markRead: (ids: number[]) => Promise<void>;
   markAllRead: () => Promise<void>;
   remove: (ids: number[]) => Promise<void>;
+  presentSaleCongrats: (notification: Notification) => void;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
@@ -67,6 +73,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { token, user } = useAuth();
   const [recent, setRecent] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saleCongrats, setSaleCongrats] = useState<Notification | null>(null);
   const pushTokenRef = useRef<string | null>(null);
   const recentRef = useRef<Notification[]>([]);
   const presentedLocalIdsRef = useRef<Set<number>>(new Set());
@@ -76,6 +83,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const streamConnectedRef = useRef(false);
 
   recentRef.current = recent;
+
+  const presentSaleCongrats = useCallback((notification: Notification) => {
+    setSaleCongrats(notification);
+  }, []);
+
+  const presentSaleCongratsRef = useRef(presentSaleCongrats);
+  presentSaleCongratsRef.current = presentSaleCongrats;
 
   const refresh = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) {
@@ -122,7 +136,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         id: notification.id,
         title: notification.title,
         body: notification.body,
-        data: notification.payload,
+        data: {
+          ...(notification.payload ?? {}),
+          event_type: notification.event_type,
+        },
       });
     } catch {
       // no romper el flujo in-app
@@ -145,6 +162,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         return normalizeList([notification, ...current]);
       });
       void announceOsNotification(notification);
+      if (isSaleCongratsNotification(notification)) {
+        presentSaleCongratsRef.current(notification);
+      }
       void refreshRef.current({ silent: true });
     },
     [announceOsNotification],
@@ -292,8 +312,30 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       onReceived: () => {
         void refreshRef.current({ silent: true });
       },
-      onResponse: () => {
+      onResponse: (data) => {
         void refreshRef.current({ silent: true });
+        if (!isSaleCongratsPayload(data)) return;
+        const clientId = Number(data?.client_id);
+        const notificationId = Number(data?.notification_id);
+        const fromList = recentRef.current.find((item) => {
+          if (notificationId && item.id === notificationId) return true;
+          return (
+            isSaleCongratsNotification(item) &&
+            Number(item.payload?.client_id) === clientId
+          );
+        });
+        presentSaleCongratsRef.current(
+          fromList ?? {
+            id: notificationId || Date.now(),
+            event_type: String(data?.event_type ?? "PAYMENT_LINK_COMPLETED"),
+            channel: "PUSH",
+            title: "",
+            body: "",
+            payload: data ?? {},
+            read_at: null,
+            created_at: new Date().toISOString(),
+          },
+        );
       },
     });
   }, []);
@@ -312,13 +354,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       markRead,
       markAllRead,
       remove,
+      presentSaleCongrats,
     }),
-    [unreadCount, recent, loading, refresh, markRead, markAllRead, remove],
+    [unreadCount, recent, loading, refresh, markRead, markAllRead, remove, presentSaleCongrats],
   );
 
   return (
     <NotificationsContext.Provider value={value}>
       {children}
+      {saleCongrats ? (
+        <SaleCongratsModal
+          notification={saleCongrats}
+          onClose={() => setSaleCongrats(null)}
+        />
+      ) : null}
     </NotificationsContext.Provider>
   );
 }

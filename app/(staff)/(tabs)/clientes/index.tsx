@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
@@ -26,13 +29,18 @@ import { useAuth } from "@/features/auth/AuthContext";
 import { CLIENTS_PAGE_SIZE } from "@/features/clients/constants";
 import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
+import {
+  canFilterClientsBySalesRep,
+  isOnboardingAreaLeader,
+  isSalesStaff,
+} from "@/lib/roles";
 import type {
+  CalendlySalesRep,
   Client,
   ClientBulkDeleteResponse,
   MerchantBrief,
   OnboardingReminderRunResult,
   Paginated,
-  SalesRepBrief,
   SentEmailEntry,
 } from "@/types/api";
 import { colors, radii, spacing } from "@/theme/tokens";
@@ -58,22 +66,40 @@ function personLabel(person: {
   return name || person.email || "—";
 }
 
-function salesRepChipLabel(rep: SalesRepBrief): string {
-  const name = `${rep.first_name} ${rep.last_name}`.trim();
-  return name || rep.email;
+function salesRepName(rep: CalendlySalesRep): string {
+  return `${rep.first_name} ${rep.last_name}`.trim() || rep.email;
+}
+
+function isSubSeller(rep: CalendlySalesRep): boolean {
+  return rep.parent_user_id != null;
+}
+
+function salesRepChipLabel(
+  rep: CalendlySalesRep,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const name = salesRepName(rep);
+  if (rep.parent_name) {
+    return `${name} (${t("calendly.subSellerOf", { name: rep.parent_name })})`;
+  }
+  if (rep.is_active === false) {
+    return `${name} (${t("catalog.inactive")})`;
+  }
+  return name;
 }
 
 export default function ClientesScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { token, user, hasPermission, isLoading: authLoading } = useAuth();
   const scope = useAdminSedeScope({ loadReps: true });
 
   const roleCode = user?.role.code;
   const isAdmin = roleCode === "ADMIN";
-  const isOnboardingLeader =
-    roleCode === "AREA_LEADER" && user?.area?.code === "ONBOARDING";
-  const showAdvisor = isAdmin || roleCode === "SALES_REP" || roleCode === "SUB_SELLER";
+  const isOnboardingLeader = isOnboardingAreaLeader(user);
+  const canFilterBySalesRep = canFilterClientsBySalesRep(user);
+  const showAdvisor = canFilterBySalesRep || isSalesStaff(roleCode);
   const canBulkDelete = isAdmin && hasPermission("clients:delete");
   const canRunReminders = isAdmin || roleCode === "BRANCH_MANAGER" || isOnboardingLeader;
   const listEnabled = !scope.isGlobal || scope.selectedSedeId != null;
@@ -87,7 +113,6 @@ export default function ClientesScreen() {
   const [merchantFilter, setMerchantFilter] = useState<MerchantFilter>("all");
   const [salesRepId, setSalesRepId] = useState<number | null>(null);
   const [merchants, setMerchants] = useState<MerchantBrief[]>([]);
-  const [salesReps, setSalesReps] = useState<SalesRepBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +130,16 @@ export default function ClientesScreen() {
   const [emailSending, setEmailSending] = useState(false);
 
   const showMerchantFilter = merchants.length > 1;
-  const showSalesRepFilter = isAdmin;
+  const showSalesRepFilter = canFilterBySalesRep;
+  const salesReps = scope.isGlobal ? scope.repsForSelectedSede : scope.salesReps;
+  const titularReps = useMemo(
+    () => salesReps.filter((rep) => !isSubSeller(rep)),
+    [salesReps],
+  );
+  const subSellerReps = useMemo(
+    () => salesReps.filter(isSubSeller),
+    [salesReps],
+  );
 
   useEffect(() => {
     const handle = setTimeout(() => setQuery(search.trim()), 350);
@@ -138,35 +172,6 @@ export default function ClientesScreen() {
       .then(setMerchants)
       .catch(() => setMerchants([]));
   }, [token, user?.merchants]);
-
-  useEffect(() => {
-    if (!token || !showSalesRepFilter) {
-      setSalesReps([]);
-      return;
-    }
-    // Prefer reps already scoped via admin sede gate when available.
-    if (scope.isGlobal && scope.selectedSedeId != null) {
-      setSalesReps(
-        scope.repsForSelectedSede.map((rep) => ({
-          id: rep.id,
-          first_name: rep.first_name,
-          last_name: rep.last_name,
-          email: rep.email,
-        })),
-      );
-      return;
-    }
-    void api
-      .get<SalesRepBrief[]>("/calendly/sales-reps", token)
-      .then(setSalesReps)
-      .catch(() => setSalesReps([]));
-  }, [
-    token,
-    showSalesRepFilter,
-    scope.isGlobal,
-    scope.selectedSedeId,
-    scope.repsForSelectedSede,
-  ]);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -508,25 +513,51 @@ export default function ClientesScreen() {
           ) : null}
 
           {showSalesRepFilter ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipsRow}
-            >
-              <FilterChip
-                label="Todos los asesores"
-                active={salesRepId == null}
-                onPress={() => setSalesRepId(null)}
-              />
-              {salesReps.map((rep) => (
+            <>
+              <Text style={styles.filterSectionLabel}>
+                {t("calendly.salesRepsTitle")}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipsRow}
+              >
                 <FilterChip
-                  key={rep.id}
-                  label={salesRepChipLabel(rep)}
-                  active={salesRepId === rep.id}
-                  onPress={() => setSalesRepId(rep.id)}
+                  label={t("scope.allReps")}
+                  active={salesRepId == null}
+                  onPress={() => setSalesRepId(null)}
                 />
-              ))}
-            </ScrollView>
+                {titularReps.map((rep) => (
+                  <FilterChip
+                    key={rep.id}
+                    label={salesRepChipLabel(rep, t)}
+                    active={salesRepId === rep.id}
+                    onPress={() => setSalesRepId(rep.id)}
+                  />
+                ))}
+              </ScrollView>
+              {subSellerReps.length > 0 ? (
+                <>
+                  <Text style={styles.filterSectionLabel}>
+                    {t("calendly.subSellersTitle")}
+                  </Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipsRow}
+                  >
+                    {subSellerReps.map((rep) => (
+                      <FilterChip
+                        key={rep.id}
+                        label={salesRepChipLabel(rep, t)}
+                        active={salesRepId === rep.id}
+                        onPress={() => setSalesRepId(rep.id)}
+                      />
+                    ))}
+                  </ScrollView>
+                </>
+              ) : null}
+            </>
           ) : null}
         </View>
       ) : null}
@@ -691,7 +722,7 @@ export default function ClientesScreen() {
                       </Text>
                     ) : null}
 
-                    {isAdmin ? (
+                    {showSalesRepFilter ? (
                       <Text style={styles.metaMuted}>
                         Registrado por: {personLabel(item.registered_by)}
                       </Text>
@@ -710,80 +741,95 @@ export default function ClientesScreen() {
         transparent
         onRequestClose={closeEmailModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Enviar email</Text>
-            {emailTarget ? (
-              <Text style={styles.modalSubtitle}>
-                {emailTarget.first_name} {emailTarget.last_name} ·{" "}
-                {emailTarget.email}
-              </Text>
-            ) : null}
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+        >
+          <View
+            style={[
+              styles.modalCard,
+              { paddingBottom: Math.max(insets.bottom, 12) },
+            ]}
+          >
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="interactive"
+              contentContainerStyle={styles.modalScroll}
+            >
+              <Text style={styles.modalTitle}>Enviar email</Text>
+              {emailTarget ? (
+                <Text style={styles.modalSubtitle}>
+                  {emailTarget.first_name} {emailTarget.last_name} ·{" "}
+                  {emailTarget.email}
+                </Text>
+              ) : null}
 
-            <Text style={styles.fieldLabel}>Asunto</Text>
-            <TextInput
-              value={emailSubject}
-              onChangeText={setEmailSubject}
-              placeholder="Asunto del mensaje"
-              placeholderTextColor={colors.brownMuted}
-              style={styles.modalInput}
-              editable={!emailSending}
-            />
-
-            <Text style={styles.fieldLabel}>Mensaje</Text>
-            <TextInput
-              value={emailMessage}
-              onChangeText={setEmailMessage}
-              placeholder="Escribí el mensaje…"
-              placeholderTextColor={colors.brownMuted}
-              style={[styles.modalInput, styles.modalTextArea]}
-              multiline
-              textAlignVertical="top"
-              editable={!emailSending}
-            />
-
-            <Text style={styles.historyTitle}>Últimos emails</Text>
-            {emailHistoryLoading ? (
-              <Text style={styles.metaMuted}>Cargando historial…</Text>
-            ) : emailHistory.length === 0 ? (
-              <Text style={styles.metaMuted}>Sin emails previos.</Text>
-            ) : (
-              emailHistory.map((entry) => (
-                <View key={entry.id} style={styles.historyItem}>
-                  <Text style={styles.historySubject} numberOfLines={1}>
-                    {entry.subject}
-                  </Text>
-                  <Text style={styles.historyMeta}>
-                    {new Date(entry.created_at).toLocaleString("es-AR", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    · {entry.sent_by_name}
-                  </Text>
-                </View>
-              ))
-            )}
-
-            <View style={styles.modalActions}>
-              <Button
-                title="Cancelar"
-                variant="secondary"
-                disabled={emailSending}
-                onPress={closeEmailModal}
-                style={styles.modalActionBtn}
+              <Text style={styles.fieldLabel}>Asunto</Text>
+              <TextInput
+                value={emailSubject}
+                onChangeText={setEmailSubject}
+                placeholder="Asunto del mensaje"
+                placeholderTextColor={colors.brownMuted}
+                style={styles.modalInput}
+                editable={!emailSending}
               />
-              <Button
-                title={emailSending ? "Enviando…" : "Enviar"}
-                loading={emailSending}
-                onPress={sendEmail}
-                style={styles.modalActionBtn}
+
+              <Text style={styles.fieldLabel}>Mensaje</Text>
+              <TextInput
+                value={emailMessage}
+                onChangeText={setEmailMessage}
+                placeholder="Escribí el mensaje…"
+                placeholderTextColor={colors.brownMuted}
+                style={[styles.modalInput, styles.modalTextArea]}
+                multiline
+                textAlignVertical="top"
+                editable={!emailSending}
               />
-            </View>
+
+              <Text style={styles.historyTitle}>Últimos emails</Text>
+              {emailHistoryLoading ? (
+                <Text style={styles.metaMuted}>Cargando historial…</Text>
+              ) : emailHistory.length === 0 ? (
+                <Text style={styles.metaMuted}>Sin emails previos.</Text>
+              ) : (
+                emailHistory.map((entry) => (
+                  <View key={entry.id} style={styles.historyItem}>
+                    <Text style={styles.historySubject} numberOfLines={1}>
+                      {entry.subject}
+                    </Text>
+                    <Text style={styles.historyMeta}>
+                      {new Date(entry.created_at).toLocaleString("es-AR", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}{" "}
+                      · {entry.sent_by_name}
+                    </Text>
+                  </View>
+                ))
+              )}
+
+              <View style={styles.modalActions}>
+                <Button
+                  title="Cancelar"
+                  variant="secondary"
+                  disabled={emailSending}
+                  onPress={closeEmailModal}
+                  style={styles.modalActionBtn}
+                />
+                <Button
+                  title={emailSending ? "Enviando…" : "Enviar"}
+                  loading={emailSending}
+                  onPress={sendEmail}
+                  style={styles.modalActionBtn}
+                />
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -863,6 +909,12 @@ const styles = StyleSheet.create({
   chipsRow: {
     gap: spacing.sm,
     paddingVertical: 2,
+  },
+  filterSectionLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.brownMuted,
+    letterSpacing: 0.2,
   },
   chip: {
     paddingHorizontal: 12,
@@ -1033,9 +1085,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    maxHeight: "92%",
+    flexShrink: 1,
+  },
+  modalScroll: {
     gap: spacing.sm,
-    maxHeight: "90%",
+    paddingBottom: spacing.sm,
   },
   modalTitle: {
     fontSize: 20,

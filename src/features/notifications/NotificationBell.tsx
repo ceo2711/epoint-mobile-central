@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useNotifications } from "@/features/notifications/NotificationsContext";
 import { SwipeToDeleteRow } from "@/features/notifications/SwipeToDeleteRow";
+import { isSaleCongratsNotification } from "@/features/notifications/SaleCongratsModal";
 import { getUserFacingErrorMessage } from "@/lib/api";
 import type { Notification } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
@@ -54,7 +55,8 @@ function ModalNotificationRow({
 }
 
 export function NotificationBell() {
-  const { unreadCount, recent, markRead, markAllRead, remove } = useNotifications();
+  const { unreadCount, recent, markRead, markAllRead, remove, presentSaleCongrats } =
+    useNotifications();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [open, setOpen] = useState(false);
@@ -75,14 +77,21 @@ export function NotificationBell() {
   }
 
   function onItemPress(item: Notification) {
-    // Abrir al instante; marcar leída en background
+    if (!item.read_at) {
+      void markRead([item.id]);
+    }
+    if (isSaleCongratsNotification(item)) {
+      closeAll();
+      presentSaleCongrats({
+        ...item,
+        read_at: item.read_at ?? new Date().toISOString(),
+      });
+      return;
+    }
     setSelected({
       ...item,
       read_at: item.read_at ?? new Date().toISOString(),
     });
-    if (!item.read_at) {
-      void markRead([item.id]);
-    }
   }
 
   function onDelete(id: number) {

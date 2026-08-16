@@ -18,8 +18,22 @@ export function isSalesAreaLeader(user: User | null | undefined): boolean {
   return user?.role.code === "AREA_LEADER" && user.area?.code === "VENTAS";
 }
 
+export function isOnboardingAreaLeader(user: User | null | undefined): boolean {
+  return user?.role.code === "AREA_LEADER" && user.area?.code === "ONBOARDING";
+}
+
+/** Puede operar herramientas comerciales propias (prospectos, calendario, contratos, pagos). */
+export function canSell(user: User | null | undefined): boolean {
+  return isSalesStaff(user?.role.code) || isSalesAreaLeader(user);
+}
+
 export function canSuperviseSalesReps(user: User | null | undefined): boolean {
   return isSedeAdmin(user?.role.code) || isSalesAreaLeader(user);
+}
+
+/** Filtro por vendedor/subvendedor en clientes (incluye líder de onboarding). */
+export function canFilterClientsBySalesRep(user: User | null | undefined): boolean {
+  return canSuperviseSalesReps(user) || isOnboardingAreaLeader(user);
 }
 
 export function canManageSedes(roleCode: string | undefined | null): boolean {
@@ -41,5 +55,12 @@ export const SEDE_REQUIRED_ROLE_CODES = [
   "BRANCH_MANAGER",
   "AREA_LEADER",
 ] as const;
+
+export function isSedeRequiredRole(roleCode: string | undefined | null): boolean {
+  return (
+    !!roleCode &&
+    (SEDE_REQUIRED_ROLE_CODES as readonly string[]).includes(roleCode)
+  );
+}
 
 export const AREA_REQUIRED_ROLE_CODES = ["AREA_LEADER", "ADVISOR"] as const;

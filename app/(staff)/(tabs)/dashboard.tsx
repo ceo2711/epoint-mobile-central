@@ -7,33 +7,28 @@ import {
   View,
 } from "react-native";
 
+import { SalesRepList } from "@/components/staff/SalesRepList";
 import { ScopePageHeader } from "@/components/staff/ScopeBackButton";
 import { SedeBranchList } from "@/components/staff/SedeBranchList";
 import { Card } from "@/components/ui/Card";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
+import { AreaMetricsCard } from "@/features/dashboard/AreaMetricsCard";
+import { SalesLeadershipCard } from "@/features/dashboard/SalesLeadershipCard";
 import {
-  BarList,
   DonutChart,
   Sparkline,
   StackedBar,
   STATUS_CHART_COLORS,
-  formatPercent,
   type ChartSlice,
 } from "@/features/dashboard/charts";
 import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
+import { isGlobalAdmin, isSalesAreaLeader } from "@/lib/roles";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import { buildScopeQuery } from "@/lib/staffScope";
-import type {
-  AreaMetrics,
-  ClientStats,
-  DashboardMetrics,
-  StatusCount,
-  TimeseriesPoint,
-} from "@/types/api";
-import { CLIENT_STATUS_LABELS, PROSPECT_STATUS_LABELS } from "@/types/api";
-import { colors, radii, spacing } from "@/theme/tokens";
+import type { ClientStats, DashboardMetrics, TimeseriesPoint } from "@/types/api";
+import { colors, radii } from "@/theme/tokens";
 
 const CLIENT_SUMMARY_KEYS: Array<{
   key: keyof ClientStats;
@@ -73,19 +68,6 @@ const CLIENT_SUMMARY_KEYS: Array<{
   },
 ];
 
-function statusLabel(status: string): string {
-  return CLIENT_STATUS_LABELS[status] ?? PROSPECT_STATUS_LABELS[status] ?? status;
-}
-
-function slicesFromStatus(items: StatusCount[]): ChartSlice[] {
-  return items.map((item) => ({
-    key: item.status,
-    label: statusLabel(item.status),
-    value: item.count,
-    color: STATUS_CHART_COLORS[item.status] ?? colors.brownMuted,
-  }));
-}
-
 function lastDays(series: TimeseriesPoint[] | undefined, days = 14): number[] {
   if (!series?.length) return [];
   const byDate = new Map(series.map((point) => [point.date, point.count]));
@@ -101,64 +83,26 @@ function lastDays(series: TimeseriesPoint[] | undefined, days = 14): number[] {
   return out;
 }
 
-function AreaCard({
-  area,
-  t,
-}: {
-  area: AreaMetrics;
-  t: (key: string, params?: Record<string, string | number>) => string;
-}) {
-  const isSales = area.code === "VENTAS";
-  const slices = slicesFromStatus(area.by_status ?? []);
-  const conversion = formatPercent(area.conversion_rate);
-
-  return (
-    <Card>
-      <Text style={styles.sectionTitle}>{area.name}</Text>
-
-      <View style={styles.areaKpis}>
-        <View style={styles.areaKpi}>
-          <Text style={styles.areaKpiValue}>{area.total}</Text>
-          <Text style={styles.areaKpiLabel}>
-            {isSales ? t("dashboard.totalProspects") : t("dashboard.totalInArea")}
-          </Text>
-        </View>
-        <View style={styles.areaKpi}>
-          <Text style={styles.areaKpiValue}>{area.in_pipeline}</Text>
-          <Text style={styles.areaKpiLabel}>
-            {isSales ? t("dashboard.prospectsInPipeline") : t("dashboard.inPipeline")}
-          </Text>
-        </View>
-        <View style={styles.areaKpi}>
-          <Text style={[styles.areaKpiValue, styles.areaKpiAccent]}>
-            {isSales ? conversion : area.completed}
-          </Text>
-          <Text style={styles.areaKpiLabel}>
-            {isSales ? t("dashboard.salesConversion") : t("dashboard.completedClients")}
-          </Text>
-        </View>
-      </View>
-
-      {isSales ? (
-        <Text style={styles.conversionCaption}>{t("dashboard.salesConversionHint")}</Text>
-      ) : null}
-
-      <StackedBar slices={slices} />
-      <BarList slices={slices} />
-    </Card>
-  );
-}
-
 export default function DashboardScreen() {
-  const { token, isLoading: authLoading } = useAuth();
+  const { token, user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
-  const scope = useAdminSedeScope({ loadReps: true });
+  const salesLeader = isSalesAreaLeader(user);
+  const scope = useAdminSedeScope({
+    loadReps: isGlobalAdmin(user?.role.code) || salesLeader,
+  });
+  const [selectedRepId, setSelectedRepId] = useState<number | null>(null);
+  const [loadedRepId, setLoadedRepId] = useState<number | null>(null);
   const [data, setData] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const metricsEnabled = !scope.isGlobal || scope.selectedSedeId != null;
+  const selectedRep =
+    salesLeader && selectedRepId != null
+      ? (scope.salesReps.find((rep) => rep.id === selectedRepId) ?? null)
+      : null;
+  const repsForList = scope.isGlobal ? scope.repsForSelectedSede : scope.salesReps;
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -173,12 +117,14 @@ export default function DashboardScreen() {
       try {
         const qs = buildScopeQuery({
           sedeId: scope.isGlobal ? scope.selectedSedeId : null,
+          salesRepId: salesLeader ? selectedRepId : null,
         });
         const metrics = await api.get<DashboardMetrics>(
           `/dashboard/metrics${qs ? `?${qs}` : ""}`,
           token,
         );
         setData(metrics);
+        setLoadedRepId(salesLeader ? selectedRepId : null);
       } catch (err) {
         setError(getUserFacingErrorMessage(err, t("dashboard.loadError")));
       } finally {
@@ -186,7 +132,15 @@ export default function DashboardScreen() {
         setRefreshing(false);
       }
     },
-    [token, t, metricsEnabled, scope.isGlobal, scope.selectedSedeId],
+    [
+      token,
+      t,
+      metricsEnabled,
+      scope.isGlobal,
+      scope.selectedSedeId,
+      salesLeader,
+      selectedRepId,
+    ],
   );
 
   useEffect(() => {
@@ -206,8 +160,17 @@ export default function DashboardScreen() {
 
   const clientTrend = lastDays(data?.registrations);
   const prospectTrend = lastDays(data?.prospect_registrations);
-  const hasClientTrend = clientTrend.some((value) => value > 0);
+  const hasClientTrend = !salesLeader && clientTrend.some((value) => value > 0);
   const hasProspectTrend = prospectTrend.some((value) => value > 0);
+  const salesArea = data?.areas.find((area) => area.code === "VENTAS") ?? null;
+  const metricsMatchSelection = !salesLeader || loadedRepId === selectedRepId;
+  const leadership =
+    salesLeader && selectedRepId == null && metricsMatchSelection
+      ? (data?.sales_leadership ?? null)
+      : null;
+  const selectedName = selectedRep
+    ? `${selectedRep.first_name} ${selectedRep.last_name}`.trim()
+    : "";
 
   if (authLoading || scope.loading) {
     return <ScreenState loading message={t("dashboard.loading")} />;
@@ -232,6 +195,26 @@ export default function DashboardScreen() {
     return <ScreenState loading message={t("dashboard.loading")} />;
   }
 
+  const viewingRep = salesLeader && selectedRepId != null;
+  const headerTitle = viewingRep
+    ? selectedName
+      ? t("dashboard.metricsOfRep", { name: selectedName })
+      : t("dashboard.title")
+    : t("dashboard.title");
+  const headerBackLabel = viewingRep
+    ? t("dashboard.backToGeneralPanel")
+    : scope.isGlobal
+      ? t("scope.backToSedes")
+      : undefined;
+  const headerOnBack = viewingRep
+    ? () => setSelectedRepId(null)
+    : scope.isGlobal
+      ? () => {
+          setSelectedRepId(null);
+          scope.clearSede();
+        }
+      : undefined;
+
   return (
     <ScrollView
       style={styles.wrap}
@@ -248,14 +231,17 @@ export default function DashboardScreen() {
       }
     >
       <ScopePageHeader
-        title={t("dashboard.title")}
-        backLabel={scope.isGlobal ? t("scope.backToSedes") : undefined}
-        onBack={scope.isGlobal ? scope.clearSede : undefined}
+        title={headerTitle}
+        backLabel={headerBackLabel}
+        onBack={headerOnBack}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {scope.error && salesLeader ? (
+        <Text style={styles.error}>{t(scope.error)}</Text>
+      ) : null}
 
-      {summary ? (
+      {summary && !salesLeader ? (
         <Card>
           <Text style={styles.sectionTitle}>{t("dashboard.clientsTitle")}</Text>
 
@@ -292,11 +278,27 @@ export default function DashboardScreen() {
         </Card>
       ) : null}
 
-      {data?.areas?.map((area) => (
-        <AreaCard key={area.code} area={area} t={t} />
-      ))}
+      {salesLeader && !metricsMatchSelection && !error ? (
+        <ScreenState loading message={t("dashboard.loading")} />
+      ) : salesLeader ? (
+        <>
+          {salesArea ? <AreaMetricsCard area={salesArea} /> : null}
+          {leadership ? <SalesLeadershipCard leadership={leadership} /> : null}
+          {selectedRepId == null ? (
+            <SalesRepList
+              reps={repsForList}
+              onSelect={setSelectedRepId}
+              titleKey="users.vendorsListTitle"
+              hintKey="users.vendorsListHint"
+              showConnectionStatus={false}
+            />
+          ) : null}
+        </>
+      ) : (
+        data?.areas?.map((area) => <AreaMetricsCard key={area.code} area={area} />)
+      )}
 
-      {hasClientTrend || hasProspectTrend ? (
+      {(hasClientTrend || hasProspectTrend) && metricsMatchSelection ? (
         <Card>
           <Text style={styles.sectionTitle}>{t("dashboard.trendTitle")}</Text>
           {hasClientTrend ? (
@@ -407,38 +409,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     color: colors.soft,
-  },
-  areaKpis: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 4,
-  },
-  areaKpi: {
-    flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: radii.control,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: spacing.md,
-    gap: 2,
-  },
-  areaKpiValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.brown,
-  },
-  areaKpiAccent: {
-    color: colors.brand,
-  },
-  areaKpiLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: colors.soft,
-  },
-  conversionCaption: {
-    fontSize: 12,
-    color: colors.soft,
-    marginBottom: 4,
   },
   trendBlock: {
     gap: 4,
