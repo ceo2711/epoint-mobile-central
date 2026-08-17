@@ -6,7 +6,7 @@ import {
   filterRepsBySede,
   type SedeBranchCard,
 } from "@/features/sedes/utils/sedeBranches";
-import { canSuperviseSalesReps, isGlobalAdmin } from "@/lib/roles";
+import { canFilterClientsBySalesRep, canSuperviseSalesReps, isGlobalAdmin } from "@/lib/roles";
 import {
   fetchCalendlySalesReps,
   fetchSedes,
@@ -28,6 +28,7 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
   const { token, user, hasPermission } = useAuth();
   const isGlobal = isGlobalAdmin(user?.role.code);
   const canSupervise = canSuperviseSalesReps(user);
+  const canFilterReps = canFilterClientsBySalesRep(user);
   /** Admin, gerente o jefe de ventas: hay que elegir un vendedor (salvo herramientas propias). */
   const needsRepPicker = options?.pickRep ?? canSupervise;
 
@@ -40,7 +41,7 @@ export function useAdminSedeScope(options?: UseAdminSedeScopeOptions) {
 
   const shouldLoadSedes = Boolean(enabled && isGlobal && token);
   const shouldLoadReps = Boolean(
-    enabled && loadReps && token && (isGlobal || canSupervise),
+    enabled && loadReps && token && (isGlobal || canFilterReps),
   );
   const shouldLoad = shouldLoadSedes || shouldLoadReps;
 

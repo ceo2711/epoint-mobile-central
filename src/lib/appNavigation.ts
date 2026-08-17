@@ -94,6 +94,7 @@ export const internalNav: NavItem[] = [
     labelKey: "nav.users",
     icon: "people-circle-outline",
     permission: "users:read",
+    salesAreaOnly: true,
   },
   {
     href: "/(staff)/(tabs)/sedes",

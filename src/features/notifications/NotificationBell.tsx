@@ -17,9 +17,17 @@ import {
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useRouter } from "expo-router";
+
+import { useTranslation } from "@/contexts/LanguageContext";
+import { useAuth } from "@/features/auth/AuthContext";
 import { useNotifications } from "@/features/notifications/NotificationsContext";
 import { SwipeToDeleteRow } from "@/features/notifications/SwipeToDeleteRow";
 import { isSaleCongratsNotification } from "@/features/notifications/SaleCongratsModal";
+import {
+  getNotificationAppPath,
+  isNotificationNavigable,
+} from "@/features/notifications/notification-routes";
 import { getUserFacingErrorMessage } from "@/lib/api";
 import type { Notification } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
@@ -55,6 +63,9 @@ function ModalNotificationRow({
 }
 
 export function NotificationBell() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { user } = useAuth();
   const { unreadCount, recent, markRead, markAllRead, remove, presentSaleCongrats } =
     useNotifications();
   const insets = useSafeAreaInsets();
@@ -74,6 +85,14 @@ export function NotificationBell() {
 
   function closeDetail() {
     setSelected(null);
+  }
+
+  function openRelated(item: Notification) {
+    const href = getNotificationAppPath(item, user?.role.code);
+    closeAll();
+    if (href) {
+      router.push(href as never);
+    }
   }
 
   function onItemPress(item: Notification) {
@@ -209,9 +228,20 @@ export function NotificationBell() {
                   >
                     <Text style={styles.detailDeleteText}>Eliminar</Text>
                   </Pressable>
-                  <Pressable style={styles.detailDone} onPress={closeDetail}>
-                    <Text style={styles.detailDoneText}>Cerrar</Text>
-                  </Pressable>
+                  {isNotificationNavigable(selected, user?.role.code) ? (
+                    <Pressable
+                      style={styles.detailDone}
+                      onPress={() => openRelated(selected)}
+                    >
+                      <Text style={styles.detailDoneText}>
+                        {t("notifications.openRelated")}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable style={styles.detailDone} onPress={closeDetail}>
+                      <Text style={styles.detailDoneText}>Cerrar</Text>
+                    </Pressable>
+                  )}
                 </View>
               </View>
             </View>

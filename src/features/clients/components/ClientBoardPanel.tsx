@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -34,6 +34,8 @@ interface ClientBoardPanelProps {
   scrollable?: boolean;
   title?: string;
   subtitle?: string;
+  /** Abre esta tarjeta al cargar (p. ej. desde una notificación de mención). */
+  initialCardId?: number | null;
 }
 
 function hasVerifyingAttachments(card: BoardCard | null): boolean {
@@ -53,6 +55,7 @@ export function ClientBoardPanel({
   scrollable = false,
   title,
   subtitle,
+  initialCardId = null,
 }: ClientBoardPanelProps) {
   const { t } = useTranslation();
   const [board, setBoard] = useState<Board | null>(null);
@@ -62,6 +65,7 @@ export function ClientBoardPanel({
   const [acting, setActing] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [selectedListId, setSelectedListId] = useState<number | null>(null);
+  const openedCardRef = useRef<number | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [attachMessage, setAttachMessage] = useState<string | null>(null);
   const [attachError, setAttachError] = useState(false);
@@ -113,6 +117,20 @@ export function ClientBoardPanel({
     }
     return null;
   }, [lists, selectedCardId]);
+
+  useEffect(() => {
+    if (!board || !initialCardId) return;
+    if (openedCardRef.current === initialCardId) return;
+    for (const list of lists) {
+      const found = list.cards.find((card) => card.id === initialCardId);
+      if (found) {
+        openedCardRef.current = initialCardId;
+        setSelectedCardId(found.id);
+        setSelectedListId(list.id);
+        return;
+      }
+    }
+  }, [board, lists, initialCardId]);
 
   useEffect(() => {
     if (!hasVerifyingAttachments(selectedCard)) return;

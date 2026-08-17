@@ -24,7 +24,7 @@ import {
   type ChartSlice,
 } from "@/features/dashboard/charts";
 import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
-import { isGlobalAdmin, isSalesAreaLeader } from "@/lib/roles";
+import { isGlobalAdmin, isSalesAreaLeader, seesOnboardingDashboard } from "@/lib/roles";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import { buildScopeQuery } from "@/lib/staffScope";
 import type { ClientStats, DashboardMetrics, TimeseriesPoint } from "@/types/api";
@@ -87,6 +87,7 @@ export default function DashboardScreen() {
   const { token, user, isLoading: authLoading } = useAuth();
   const { t } = useTranslation();
   const salesLeader = isSalesAreaLeader(user);
+  const onboardingDashboard = seesOnboardingDashboard(user);
   const scope = useAdminSedeScope({
     loadReps: isGlobalAdmin(user?.role.code) || salesLeader,
   });
@@ -160,8 +161,13 @@ export default function DashboardScreen() {
 
   const clientTrend = lastDays(data?.registrations);
   const prospectTrend = lastDays(data?.prospect_registrations);
+  const completionTrend = lastDays(data?.completions);
   const hasClientTrend = !salesLeader && clientTrend.some((value) => value > 0);
-  const hasProspectTrend = prospectTrend.some((value) => value > 0);
+  const hasProspectTrend =
+    !onboardingDashboard && prospectTrend.some((value) => value > 0);
+  const hasCompletionTrend =
+    onboardingDashboard && completionTrend.some((value) => value > 0);
+  const showClientSummary = Boolean(summary) && !salesLeader && !onboardingDashboard;
   const salesArea = data?.areas.find((area) => area.code === "VENTAS") ?? null;
   const metricsMatchSelection = !salesLeader || loadedRepId === selectedRepId;
   const leadership =
@@ -235,13 +241,16 @@ export default function DashboardScreen() {
         backLabel={headerBackLabel}
         onBack={headerOnBack}
       />
+      {onboardingDashboard && !viewingRep ? (
+        <Text style={styles.subtitle}>{t("dashboard.onboardingMetricsSubtitle")}</Text>
+      ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {scope.error && salesLeader ? (
         <Text style={styles.error}>{t(scope.error)}</Text>
       ) : null}
 
-      {summary && !salesLeader ? (
+      {showClientSummary && summary ? (
         <Card>
           <Text style={styles.sectionTitle}>{t("dashboard.clientsTitle")}</Text>
 
@@ -298,13 +307,20 @@ export default function DashboardScreen() {
         data?.areas?.map((area) => <AreaMetricsCard key={area.code} area={area} />)
       )}
 
-      {(hasClientTrend || hasProspectTrend) && metricsMatchSelection ? (
+      {(hasClientTrend || hasProspectTrend || hasCompletionTrend) &&
+      metricsMatchSelection ? (
         <Card>
           <Text style={styles.sectionTitle}>{t("dashboard.trendTitle")}</Text>
           {hasClientTrend ? (
             <View style={styles.trendBlock}>
               <Text style={styles.trendLabel}>{t("dashboard.clientsTrend")}</Text>
               <Sparkline points={clientTrend} color={colors.brand} />
+            </View>
+          ) : null}
+          {hasCompletionTrend ? (
+            <View style={styles.trendBlock}>
+              <Text style={styles.trendLabel}>{t("dashboard.completionsTrend")}</Text>
+              <Sparkline points={completionTrend} color={colors.brandSoft} />
             </View>
           ) : null}
           {hasProspectTrend ? (

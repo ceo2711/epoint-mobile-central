@@ -329,6 +329,7 @@ export interface Client {
   portal_login_url?: string | null;
   portal_temp_password?: string | null;
   advisor?: AdvisorBrief | null;
+  advisors?: AdvisorBrief[];
   addresses?: Address[];
   vehicles?: Vehicle[];
   documents?: DocumentBrief[];

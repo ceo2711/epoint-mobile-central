@@ -31,8 +31,10 @@ import { useAdminSedeScope } from "@/hooks/useAdminSedeScope";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
 import {
   canFilterClientsBySalesRep,
-  isOnboardingAreaLeader,
+  canRunOnboardingReminders,
+  isAdvisor,
   isSalesStaff,
+  seesOnboardingDashboard,
 } from "@/lib/roles";
 import type {
   CalendlySalesRep,
@@ -97,12 +99,14 @@ export default function ClientesScreen() {
 
   const roleCode = user?.role.code;
   const isAdmin = roleCode === "ADMIN";
-  const isOnboardingLeader = isOnboardingAreaLeader(user);
+  const isOnboardingStaff = seesOnboardingDashboard(user) && !isAdvisor(user);
+  const lineAdvisor = isAdvisor(user);
   const canFilterBySalesRep = canFilterClientsBySalesRep(user);
   const showAdvisor = canFilterBySalesRep || isSalesStaff(roleCode);
   const canBulkDelete = isAdmin && hasPermission("clients:delete");
-  const canRunReminders = isAdmin || roleCode === "BRANCH_MANAGER" || isOnboardingLeader;
+  const canRunReminders = canRunOnboardingReminders(user);
   const listEnabled = !scope.isGlobal || scope.selectedSedeId != null;
+  const onboardingOnly = roleCode === "BRANCH_MANAGER" || isOnboardingStaff;
 
   const [items, setItems] = useState<Client[]>([]);
   const [total, setTotal] = useState(0);
@@ -191,7 +195,7 @@ export default function ClientesScreen() {
           page_size: String(CLIENTS_PAGE_SIZE),
         });
         if (query) params.set("search", query);
-        if (isOnboardingLeader) params.set("onboarding_only", "true");
+        if (onboardingOnly) params.set("onboarding_only", "true");
         if (scope.isGlobal && scope.selectedSedeId != null) {
           params.set("sede_id", String(scope.selectedSedeId));
         }
@@ -215,7 +219,7 @@ export default function ClientesScreen() {
         setPages(Math.max(1, data.pages));
       } catch (err) {
         setError(
-          getUserFacingErrorMessage(err, "No se pudieron cargar los clientes"),
+          getUserFacingErrorMessage(err, t("clients.loadError")),
         );
       } finally {
         setLoading(false);
@@ -224,9 +228,10 @@ export default function ClientesScreen() {
     },
     [
       token,
+      t,
       page,
       query,
-      isOnboardingLeader,
+      onboardingOnly,
       showMerchantFilter,
       merchantFilter,
       showSalesRepFilter,
@@ -314,12 +319,12 @@ export default function ClientesScreen() {
     if (!token || remindersRunning) return;
 
     Alert.alert(
-      "Enviar recordatorios",
-      "Se enviarán recordatorios de onboarding a los clientes pendientes. ¿Continuar?",
+      t("clients.remindersRunTitle"),
+      t("clients.remindersRunConfirm"),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Enviar",
+          text: t("clients.remindersRunAction"),
           onPress: () => {
             void (async () => {
               setRemindersRunning(true);
@@ -330,18 +335,23 @@ export default function ClientesScreen() {
                   token,
                 );
                 const dryNote = result.dry_run
-                  ? "\n\n(Modo simulación: no se enviaron emails reales.)"
+                  ? `\n\n${t("clients.remindersRunDryRunNote")}`
                   : "";
                 Alert.alert(
-                  "Recordatorios procesados",
-                  `Procesados: ${result.processed}\nEnviados: ${result.sent}\nOmitidos: ${result.skipped}\nFallidos: ${result.failed}${dryNote}`,
+                  t("clients.remindersRunSuccessTitle"),
+                  `${t("clients.remindersRunSuccessMessage", {
+                    processed: result.processed,
+                    sent: result.sent,
+                    skipped: result.skipped,
+                    failed: result.failed,
+                  })}${dryNote}`,
                 );
               } catch (err) {
                 Alert.alert(
-                  "Error",
+                  t("common.error"),
                   getUserFacingErrorMessage(
                     err,
-                    "No se pudieron enviar los recordatorios",
+                    t("clients.remindersRunError"),
                   ),
                 );
               } finally {
@@ -352,7 +362,7 @@ export default function ClientesScreen() {
         },
       ],
     );
-  }, [token, remindersRunning]);
+  }, [token, remindersRunning, t]);
 
   const openEmailModal = useCallback(
     (client: Client) => {
@@ -416,19 +426,19 @@ export default function ClientesScreen() {
   }, [token, emailTarget, emailSubject, emailMessage]);
 
   const subtitle = useMemo(() => {
-    if (isOnboardingLeader) return "Clientes en onboarding";
-    if (roleCode === "ADVISOR") return "Tus clientes asignados";
-    return `${total} en total`;
-  }, [isOnboardingLeader, roleCode, total]);
+    if (lineAdvisor) return t("clients.subtitleAdvisor");
+    if (isOnboardingStaff) return t("clients.subtitleOnboarding");
+    return `${t("clients.subtitle")} · ${total}`;
+  }, [isOnboardingStaff, lineAdvisor, t, total]);
 
   if (authLoading || scope.loading) {
-    return <ScreenState loading message="Cargando clientes…" />;
+    return <ScreenState loading message={t("clients.loading")} />;
   }
 
   if (scope.showSedePicker) {
     return (
       <ScrollView style={styles.wrap} contentContainerStyle={styles.pickerContent}>
-        <Text style={styles.title}>Clientes</Text>
+        <Text style={styles.title}>{t("clients.title")}</Text>
         <Text style={styles.subtitle}>{t("scope.adminSedesHint")}</Text>
         <SedeBranchList branches={scope.branches} onSelect={scope.selectSede} />
       </ScrollView>
@@ -436,13 +446,13 @@ export default function ClientesScreen() {
   }
 
   if (loading && items.length === 0 && !error) {
-    return <ScreenState loading message="Cargando clientes…" />;
+    return <ScreenState loading message={t("clients.loading")} />;
   }
 
   return (
     <View style={styles.wrap}>
       <ScopePageHeader
-        title="Clientes"
+        title={t("clients.title")}
         backLabel={scope.isGlobal ? t("scope.backToSedes") : undefined}
         onBack={scope.isGlobal ? scope.clearSede : undefined}
       />
@@ -456,7 +466,11 @@ export default function ClientesScreen() {
         <View style={styles.headerActions}>
           {canRunReminders ? (
             <Button
-              title={remindersRunning ? "Enviando…" : "Enviar recordatorios"}
+              title={
+                remindersRunning
+                  ? t("clients.remindersRunning")
+                  : t("clients.remindersRunAction")
+              }
               variant="secondary"
               disabled={remindersRunning}
               onPress={runReminders}
@@ -480,7 +494,7 @@ export default function ClientesScreen() {
       <TextInput
         value={search}
         onChangeText={setSearch}
-        placeholder="Buscar por nombre, email o teléfono"
+        placeholder={t("clients.searchPlaceholder")}
         placeholderTextColor={colors.brownMuted}
         style={styles.search}
         autoCorrect={false}
@@ -605,11 +619,9 @@ export default function ClientesScreen() {
         ListEmptyComponent={
           !loading && !error ? (
             <EmptyState
-              title="No hay clientes"
+              title={t("clients.empty")}
               description={
-                query
-                  ? "Probá con otro término de búsqueda o ajustá los filtros."
-                  : "Todavía no hay clientes para mostrar."
+                query ? t("clients.emptySearch") : t("clients.emptyHint")
               }
               icon="people-outline"
             />
@@ -702,7 +714,9 @@ export default function ClientesScreen() {
                       <StatusBadge status={item.status} />
                       {item.is_qualified ? (
                         <View style={styles.qualifiedBadge}>
-                          <Text style={styles.qualifiedText}>Calificado</Text>
+                          <Text style={styles.qualifiedText}>
+                            {t("clients.qualified")}
+                          </Text>
                         </View>
                       ) : null}
                     </View>
@@ -718,13 +732,13 @@ export default function ClientesScreen() {
 
                     {showAdvisor ? (
                       <Text style={styles.metaMuted}>
-                        Asesor: {personLabel(item.advisor)}
+                        {t("clients.advisor")}: {personLabel(item.advisor)}
                       </Text>
                     ) : null}
 
                     {showSalesRepFilter ? (
                       <Text style={styles.metaMuted}>
-                        Registrado por: {personLabel(item.registered_by)}
+                        {t("clients.registeredBy")}: {personLabel(item.registered_by)}
                       </Text>
                     ) : null}
                   </View>

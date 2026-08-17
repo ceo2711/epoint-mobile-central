@@ -1,16 +1,7 @@
-import type { Client, User } from "@/types/api";
+import { canManageOnboarding, isAdvisor, isSedeAdmin } from "@/lib/roles";
+import type { AdvisorBrief, Client, User } from "@/types/api";
 
 const SALES_REP_EDITABLE_STATUSES = ["PENDIENTE_DE_REVISION", "RECHAZADO"] as const;
-
-function isOnboardingAreaLeader(user: Pick<User, "role" | "area"> | null | undefined): boolean {
-  return user?.role.code === "AREA_LEADER" && user.area?.code === "ONBOARDING";
-}
-
-function canManageOnboarding(user: Pick<User, "role" | "area"> | null | undefined): boolean {
-  if (!user) return false;
-  const role = user.role.code;
-  return role === "ADMIN" || role === "BRANCH_MANAGER" || isOnboardingAreaLeader(user);
-}
 
 export function canViewClientOnboardingWorkspace(
   user: Pick<User, "id" | "role" | "area"> | null | undefined,
@@ -40,21 +31,30 @@ export function canEditClientProfile(
   );
 }
 
+export function assignedAdvisorsOf(
+  client: Pick<Client, "advisors" | "advisor"> | null | undefined,
+): AdvisorBrief[] {
+  if (!client) return [];
+  if (client.advisors?.length) return client.advisors;
+  return client.advisor ? [client.advisor] : [];
+}
+
 export function canManageClientAdvisor(
-  user: Pick<User, "role" | "area"> | null | undefined,
-  client: Pick<Client, "approved_at"> | null | undefined,
+  user: Pick<User, "id" | "role" | "area"> | null | undefined,
+  client: Pick<Client, "approved_at" | "advisors" | "advisor"> | null | undefined,
   hasApprovePermission: boolean,
 ): boolean {
   if (!user || !client?.approved_at) return false;
   if (canManageOnboarding(user) && hasApprovePermission) return true;
-  return false;
+  if (!isAdvisor(user) || !user.id) return false;
+  return assignedAdvisorsOf(client).some((item) => item.id === user.id);
 }
 
 export function canContactClientAdvisor(
   user: Pick<User, "role"> | null | undefined,
-  client: Pick<Client, "advisor"> | null | undefined,
+  client: Pick<Client, "advisors" | "advisor"> | null | undefined,
 ): boolean {
-  if (!user || !client?.advisor) return false;
+  if (!user || assignedAdvisorsOf(client).length === 0) return false;
   const role = user.role.code;
-  return role === "ADMIN" || role === "SALES_REP" || role === "SUB_SELLER";
+  return isSedeAdmin(role) || role === "SALES_REP" || role === "SUB_SELLER";
 }

@@ -21,35 +21,42 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import { useAuth } from "@/features/auth/AuthContext";
 import { ClientSalesPipelineSection } from "@/features/clients/ClientSalesPipelineSection";
 import {
+  assignedAdvisorsOf,
   canContactClientAdvisor,
   canEditClientProfile,
   canManageClientAdvisor,
   canViewApprovedClientWorkspace,
   canViewClientOnboardingWorkspace,
 } from "@/features/clients/client-access";
+import { ClientAdvisorPanel } from "@/features/clients/components/ClientAdvisorPanel";
 import { ClientBoardPanel } from "@/features/clients/components/ClientBoardPanel";
 import { ClientDocumentsPanel } from "@/features/clients/components/ClientDocumentsPanel";
 import { ClientPortalCredentialsCard } from "@/features/clients/components/ClientPortalCredentialsCard";
+import { ClientContractsPanel } from "@/features/docusign/ClientContractsPanel";
 import {
   CLIENT_SOURCE_LABELS,
   CLIENT_SOURCE_VALUES,
   type ClientSourceValue,
 } from "@/features/clients/constants";
-import { formatDate, formatDateTime } from "@/features/clients/format";
+import { formatDate } from "@/features/clients/format";
 import { savePortalTempPassword } from "@/features/clients/portal-credentials";
 import { api, getUserFacingErrorMessage } from "@/lib/api";
+import { canDownloadClientDocuments, canUploadClientDocuments, isAdvisor, seesOnboardingDashboard } from "@/lib/roles";
+import {
+  parseWorkspaceTab,
+  payloadPositiveInt,
+} from "@/features/notifications/notification-routes";
 import type {
   AdvisorBrief,
   Client,
   ClientAvailability,
   ClientSourceProspect,
-  DocusignEnvelope,
   MerchantBrief,
 } from "@/types/api";
 import { colors, radii } from "@/theme/tokens";
 
 type WorkspaceTab = "resumen" | "documentos" | "tablero";
-type AdvisorPickerMode = "approve" | "reassign" | null;
+type AdvisorPickerMode = "approve" | null;
 
 interface EditForm {
   first_name: string;
@@ -81,8 +88,16 @@ function asProspect(value: Client["source_prospect"]): ClientSourceProspect | nu
 }
 
 export default function ClienteDetailScreen() {
-  const { id: idParam } = useLocalSearchParams<{ id: string }>();
+  const { id: idParam, tab: tabParam, card: cardParam } = useLocalSearchParams<{
+    id: string;
+    tab?: string;
+    card?: string;
+  }>();
   const id = Number(idParam);
+  const requestedTab = parseWorkspaceTab(tabParam);
+  const requestedCardId = payloadPositiveInt(
+    Array.isArray(cardParam) ? cardParam[0] : cardParam,
+  );
   const router = useRouter();
   const { t, locale } = useTranslation();
   const { token, user, hasPermission, isLoading: authLoading } = useAuth();
@@ -90,7 +105,6 @@ export default function ClienteDetailScreen() {
   const [client, setClient] = useState<Client | null>(null);
   const [advisors, setAdvisors] = useState<AdvisorBrief[]>([]);
   const [merchants, setMerchants] = useState<MerchantBrief[]>([]);
-  const [envelopes, setEnvelopes] = useState<DocusignEnvelope[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acting, setActing] = useState(false);
@@ -103,8 +117,7 @@ export default function ClienteDetailScreen() {
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [availability, setAvailability] = useState<ClientAvailability | null>(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
-  const [tab, setTab] = useState<WorkspaceTab>("resumen");
-  const [syncingDocusign, setSyncingDocusign] = useState(false);
+  const [tab, setTab] = useState<WorkspaceTab>(requestedTab ?? "resumen");
 
   const canApprove = hasPermission("clients:approve");
   const canUpdate = hasPermission("clients:update");
@@ -114,6 +127,13 @@ export default function ClienteDetailScreen() {
   const canManageAdvisor = canManageClientAdvisor(user, client, canApprove);
   const canContactAdvisor = canContactClientAdvisor(user, client);
   const canManageBoard = canViewClientOnboardingWorkspace(user);
+  const assignedAdvisors = assignedAdvisorsOf(client);
+  const contactAdvisor = assignedAdvisors[0] ?? null;
+  const workspaceHint = isAdvisor(user)
+    ? t("clientDetail.workspaceHintAdvisor")
+    : seesOnboardingDashboard(user)
+      ? t("clientDetail.workspaceHintOnboarding")
+      : null;
 
   const loadAdvisors = useCallback(async () => {
     if (!token) return;
@@ -124,19 +144,6 @@ export default function ClienteDetailScreen() {
       setAdvisors([]);
     }
   }, [token]);
-
-  const loadEnvelopes = useCallback(async () => {
-    if (!token || !id || Number.isNaN(id)) return;
-    try {
-      const list = await api.get<DocusignEnvelope[]>(
-        `/docusign/clients/${id}/envelopes`,
-        token,
-      );
-      setEnvelopes(list);
-    } catch {
-      setEnvelopes([]);
-    }
-  }, [token, id]);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -153,10 +160,6 @@ export default function ClienteDetailScreen() {
         if (needsAdvisors) {
           await loadAdvisors();
         }
-
-        if (canViewApprovedClientWorkspace(user, data)) {
-          await loadEnvelopes();
-        }
       } catch (err) {
         setError(getUserFacingErrorMessage(err, "No se pudo cargar el cliente"));
       } finally {
@@ -164,12 +167,17 @@ export default function ClienteDetailScreen() {
         setRefreshing(false);
       }
     },
-    [token, id, canApprove, user, loadAdvisors, loadEnvelopes],
+    [token, id, canApprove, user, loadAdvisors],
   );
 
   useEffect(() => {
     if (!authLoading && token) void load();
   }, [authLoading, token, load]);
+
+  useEffect(() => {
+    if (requestedTab) setTab(requestedTab);
+    else if (requestedCardId) setTab("tablero");
+  }, [requestedTab, requestedCardId]);
 
   useEffect(() => {
     if (!editing || !token) return;
@@ -251,22 +259,6 @@ export default function ClienteDetailScreen() {
       await load({ silent: true });
     } catch (err) {
       setError(getUserFacingErrorMessage(err, "No se pudo aprobar el cliente"));
-    } finally {
-      setActing(false);
-    }
-  }
-
-  async function doReassign(advisorUserId: number) {
-    if (!token || !id) return;
-    setActing(true);
-    setError(null);
-    try {
-      await api.patch(`/clients/${id}/advisor`, { advisor_user_id: advisorUserId }, token);
-      setPickAdvisor(null);
-      Alert.alert("Asesor actualizado", "Se reasignó el asesor del cliente.");
-      await load({ silent: true });
-    } catch (err) {
-      setError(getUserFacingErrorMessage(err, "No se pudo reasignar el asesor"));
     } finally {
       setActing(false);
     }
@@ -402,23 +394,8 @@ export default function ClienteDetailScreen() {
     }
   }
 
-  async function syncDocusign() {
-    if (!token) return;
-    setSyncingDocusign(true);
-    setError(null);
-    try {
-      await api.post(`/docusign/envelopes/sync-pending`, {}, token);
-      await loadEnvelopes();
-      Alert.alert("DocuSign", "Sincronización de sobres pendientes iniciada.");
-    } catch (err) {
-      setError(getUserFacingErrorMessage(err, "No se pudo sincronizar DocuSign"));
-    } finally {
-      setSyncingDocusign(false);
-    }
-  }
-
   if (authLoading || (loading && !client && !error)) {
-    return <ScreenState loading message="Cargando cliente…" />;
+    return <ScreenState loading message={t("clientDetail.loading")} />;
   }
 
   if (error && !client) {
@@ -426,7 +403,7 @@ export default function ClienteDetailScreen() {
   }
 
   if (!client || Number.isNaN(id)) {
-    return <ScreenState message="Cliente no encontrado" />;
+    return <ScreenState message={t("clientDetail.notFound")} />;
   }
 
   const pending = client.status === "PENDIENTE_DE_REVISION";
@@ -488,7 +465,7 @@ export default function ClienteDetailScreen() {
         <Text style={styles.idLabel}>ID #{client.id}</Text>
         {client.rejection_reason ? (
           <Text style={styles.rejection}>
-            Motivo: {client.rejection_reason}
+            {t("clientDetail.rejectionReason")} {client.rejection_reason}
           </Text>
         ) : null}
       </Card>
@@ -531,11 +508,11 @@ export default function ClienteDetailScreen() {
         contentContainerStyle={styles.actionsRow}
       >
         {pending && canApprove ? (
-          <Button title="Aprobar" loading={acting} onPress={onApprovePress} />
+          <Button title={t("clients.approve")} loading={acting} onPress={onApprovePress} />
         ) : null}
         {pending && canApprove ? (
           <Button
-            title="Rechazar"
+            title={t("clients.reject")}
             variant="danger"
             disabled={acting}
             onPress={() => {
@@ -546,7 +523,7 @@ export default function ClienteDetailScreen() {
         ) : null}
         {rejected && canUpdate ? (
           <Button
-            title="Reenviar"
+            title={t("clients.resubmit")}
             variant="secondary"
             loading={acting}
             onPress={() => void onResubmit()}
@@ -749,13 +726,17 @@ export default function ClienteDetailScreen() {
       ) : null}
 
       {/* Workspace tabs */}
+      {showWorkspace && workspaceHint ? (
+        <Text style={styles.workspaceHint}>{workspaceHint}</Text>
+      ) : null}
+
       {showWorkspace ? (
         <View style={styles.tabs}>
           {(
             [
-              ["resumen", "Resumen"],
-              ["documentos", "Documentos"],
-              ["tablero", "Tablero"],
+              ["resumen", t("clientDetail.tabOverview")],
+              ["documentos", t("clientDetail.tabDocuments")],
+              ["tablero", t("clientDetail.tabBoard")],
             ] as const
           ).map(([key, label]) => (
             <Pressable
@@ -779,6 +760,8 @@ export default function ClienteDetailScreen() {
           key={client.id}
           clientId={client.id}
           token={token}
+          canUpload={canUploadClientDocuments(user)}
+          canDownload={canDownloadClientDocuments(user)}
           initialDocuments={client.documents ?? []}
         />
       ) : null}
@@ -788,6 +771,7 @@ export default function ClienteDetailScreen() {
           clientId={client.id}
           token={token}
           canManage={canManageBoard}
+          initialCardId={requestedCardId}
         />
       ) : null}
 
@@ -802,26 +786,34 @@ export default function ClienteDetailScreen() {
             />
           ) : null}
 
-          {(client.addresses?.length ?? 0) > 0 ? (
-            <Card title="Direcciones">
-              {client.addresses!.map((addr) => (
-                <View key={addr.id} style={styles.block}>
-                  <Text style={styles.optionName}>{addr.type}</Text>
-                  <Text style={styles.row}>
-                    {addr.street}, {addr.city}, {addr.state} {addr.zip_code}
-                  </Text>
-                </View>
-              ))}
+          {(client.addresses?.length ?? 0) > 0 || showWorkspace ? (
+            <Card title={t("clientDetail.addresses")}>
+              {(client.addresses?.length ?? 0) > 0 ? (
+                client.addresses!.map((addr) => (
+                  <View key={addr.id} style={styles.block}>
+                    <Text style={styles.optionName}>{addr.type}</Text>
+                    <Text style={styles.row}>
+                      {addr.street}, {addr.city}, {addr.state} {addr.zip_code}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.muted}>{t("clientDetail.noAddresses")}</Text>
+              )}
             </Card>
           ) : null}
 
-          {(client.vehicles?.length ?? 0) > 0 ? (
-            <Card title="Vehículos">
-              {client.vehicles!.map((v) => (
-                <Text key={v.id} style={styles.row}>
-                  #{v.order}: {v.year} {v.model} ({v.color})
-                </Text>
-              ))}
+          {(client.vehicles?.length ?? 0) > 0 || showWorkspace ? (
+            <Card title={t("clientDetail.vehicles")}>
+              {(client.vehicles?.length ?? 0) > 0 ? (
+                client.vehicles!.map((v) => (
+                  <Text key={v.id} style={styles.row}>
+                    #{v.order}: {v.year} {v.model} ({v.color})
+                  </Text>
+                ))
+              ) : (
+                <Text style={styles.muted}>{t("clientDetail.noVehicles")}</Text>
+              )}
             </Card>
           ) : null}
 
@@ -836,90 +828,52 @@ export default function ClienteDetailScreen() {
           ) : null}
 
           {/* Advisor */}
-          {canManageAdvisor ? (
-            <Card title="Asesor">
-              {client.advisor ? (
-                <Text style={styles.row}>
-                  Actual: {client.advisor.first_name} {client.advisor.last_name} (
-                  {client.advisor.email})
-                </Text>
-              ) : (
-                <Text style={styles.muted}>Sin asesor asignado</Text>
-              )}
-              {pickAdvisor === "reassign" ? (
-                <View style={styles.gap}>
-                  {advisors.map((a) => (
-                    <Pressable
-                      key={a.id}
-                      style={styles.option}
-                      disabled={acting}
-                      onPress={() => void doReassign(a.id)}
-                    >
-                      <Text style={styles.optionName}>
-                        {a.first_name} {a.last_name}
-                      </Text>
-                      <Text style={styles.muted}>{a.email}</Text>
-                    </Pressable>
-                  ))}
-                  <Button
-                    title="Cancelar"
-                    variant="ghost"
-                    fullWidth
-                    onPress={() => setPickAdvisor(null)}
-                  />
-                </View>
-              ) : (
-                <Button
-                  title="Reasignar asesor"
-                  variant="secondary"
-                  fullWidth
-                  onPress={() => {
-                    void loadAdvisors();
-                    setPickAdvisor("reassign");
-                  }}
-                />
-              )}
-            </Card>
-          ) : canContactAdvisor && client.advisor?.email ? (
-            <Card title="Asesor">
+          {canManageAdvisor && token ? (
+            <ClientAdvisorPanel
+              clientId={client.id}
+              clientStatus={client.status}
+              advisorsAssigned={assignedAdvisors}
+              token={token}
+              advisors={advisors}
+              onLoadAdvisors={loadAdvisors}
+              onAdvisorsUpdated={(next) => {
+                setClient((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        advisors: next,
+                        advisor: next[0] ?? null,
+                      }
+                    : prev,
+                );
+              }}
+            />
+          ) : canContactAdvisor && contactAdvisor?.email ? (
+            <Card title={t("clientDetail.assignedAdvisor")}>
               <Text style={styles.row}>
-                {client.advisor.first_name} {client.advisor.last_name}
+                {contactAdvisor.first_name} {contactAdvisor.last_name}
               </Text>
+              <Text style={styles.muted}>{t("clientDetail.advisorContactHint")}</Text>
               <Button
-                title="Contactar asesor"
+                title={t("clientDetail.contactAdvisor")}
                 variant="secondary"
                 fullWidth
                 onPress={() =>
-                  void Linking.openURL(`mailto:${client.advisor!.email}`)
+                  void Linking.openURL(`mailto:${contactAdvisor.email}`)
                 }
               />
             </Card>
           ) : null}
 
-          {/* DocuSign */}
-          {showWorkspace ? (
-            <Card title="DocuSign">
-              {envelopes.length === 0 ? (
-                <Text style={styles.muted}>Sin sobres para este cliente.</Text>
-              ) : (
-                envelopes.map((env) => (
-                  <View key={env.id} style={styles.block}>
-                    <Text style={styles.optionName}>{env.subject}</Text>
-                    <Text style={styles.muted}>{env.status}</Text>
-                    <Text style={styles.muted}>
-                      Enviado: {formatDateTime(env.sent_at)}
-                    </Text>
-                  </View>
-                ))
-              )}
-              <Button
-                title="Sincronizar pendientes"
-                variant="secondary"
-                fullWidth
-                loading={syncingDocusign}
-                onPress={() => void syncDocusign()}
-              />
-            </Card>
+          {showWorkspace && token ? (
+            <ClientContractsPanel
+              clientId={client.id}
+              clientName={`${client.first_name} ${client.last_name}`}
+              clientEmail={client.email}
+              locale={locale}
+              token={token}
+              user={user}
+            />
           ) : null}
         </>
       )}
@@ -953,6 +907,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.soft,
     marginTop: -4,
+  },
+  workspaceHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.soft,
   },
   sectionLabel: {
     fontSize: 12,

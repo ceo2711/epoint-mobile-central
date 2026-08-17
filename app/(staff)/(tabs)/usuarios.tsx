@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/ui/Button";
@@ -26,6 +27,7 @@ import {
   AREA_REQUIRED_ROLE_CODES,
   isGlobalAdmin,
   isSalesAreaLeader,
+  seesOnboardingDashboard,
   SEDE_REQUIRED_ROLE_CODES,
 } from "@/lib/roles";
 import { fetchSedes } from "@/lib/staffScope";
@@ -104,6 +106,9 @@ export default function UsuariosScreen() {
 
   if (authLoading) {
     return <ScreenState loading message={`${t("users.title")}…`} />;
+  }
+  if (seesOnboardingDashboard(user)) {
+    return <Redirect href="/(staff)/(tabs)/dashboard" />;
   }
   if (isSalesAreaLeader(user)) {
     return <SalesLeaderVendorsScreen />;

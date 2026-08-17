@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { AppState } from "react-native";
+import { router } from "expo-router";
 
 import { useAuth } from "@/features/auth/AuthContext";
 import {
@@ -30,6 +31,10 @@ import {
   isSaleCongratsNotification,
   isSaleCongratsPayload,
 } from "@/features/notifications/SaleCongratsModal";
+import {
+  getNotificationAppPath,
+  payloadPositiveInt,
+} from "@/features/notifications/notification-routes";
 
 interface NotificationsContextValue {
   unreadCount: number;
@@ -192,6 +197,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [token],
   );
 
+  const markReadRef = useRef(markRead);
+  markReadRef.current = markRead;
+  const roleCodeRef = useRef(user?.role.code);
+  roleCodeRef.current = user?.role.code;
+
   const markAllRead = useCallback(async () => {
     const ids = recent.filter((n) => !n.read_at).map((n) => n.id);
     await markRead(ids);
@@ -314,28 +324,38 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       },
       onResponse: (data) => {
         void refreshRef.current({ silent: true });
-        if (!isSaleCongratsPayload(data)) return;
-        const clientId = Number(data?.client_id);
-        const notificationId = Number(data?.notification_id);
-        const fromList = recentRef.current.find((item) => {
-          if (notificationId && item.id === notificationId) return true;
-          return (
-            isSaleCongratsNotification(item) &&
-            Number(item.payload?.client_id) === clientId
+        if (isSaleCongratsPayload(data)) {
+          const clientId = Number(data?.client_id);
+          const notificationId = Number(data?.notification_id);
+          const fromList = recentRef.current.find((item) => {
+            if (notificationId && item.id === notificationId) return true;
+            return (
+              isSaleCongratsNotification(item) &&
+              Number(item.payload?.client_id) === clientId
+            );
+          });
+          presentSaleCongratsRef.current(
+            fromList ?? {
+              id: notificationId || Date.now(),
+              event_type: String(data?.event_type ?? "PAYMENT_LINK_COMPLETED"),
+              channel: "PUSH",
+              title: "",
+              body: "",
+              payload: data ?? {},
+              read_at: null,
+              created_at: new Date().toISOString(),
+            },
           );
-        });
-        presentSaleCongratsRef.current(
-          fromList ?? {
-            id: notificationId || Date.now(),
-            event_type: String(data?.event_type ?? "PAYMENT_LINK_COMPLETED"),
-            channel: "PUSH",
-            title: "",
-            body: "",
-            payload: data ?? {},
-            read_at: null,
-            created_at: new Date().toISOString(),
-          },
-        );
+          return;
+        }
+        const notificationId = payloadPositiveInt(data?.notification_id);
+        if (notificationId) {
+          void markReadRef.current([notificationId]);
+        }
+        const href = getNotificationAppPath(data ?? {}, roleCodeRef.current);
+        if (href) {
+          router.push(href as never);
+        }
       },
     });
   }, []);

@@ -35,6 +35,7 @@ export type SendContractPayload = {
   subject?: string;
   template_id?: string;
   prospect_id?: number;
+  client_id?: number;
 };
 
 type SendContractModalProps = {

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -37,6 +41,17 @@ const STATUS_PRIORITY = [
   "APROBADO",
 ];
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
 const SSN_SECTION = DOCUMENT_SECTIONS.find((s) => s.id === "ssn")!;
 const IDENTITY_SECTION = DOCUMENT_SECTIONS.find((s) => s.id === "identity")!;
 const ADDRESS_SECTION = DOCUMENT_SECTIONS.find((s) => s.id === "address")!;
@@ -52,6 +67,8 @@ const DOC_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 interface ClientDocumentsPanelProps {
   clientId: number;
   token: string;
+  canUpload?: boolean;
+  canDownload?: boolean;
   initialDocuments?: DocumentBrief[];
   onDocumentsChange?: (docs: DocumentBrief[]) => void;
 }
@@ -117,6 +134,8 @@ function DocumentSlotCard({
   doc,
   token,
   uploading,
+  canUpload,
+  canDownload,
   onUpload,
   t,
 }: {
@@ -124,6 +143,8 @@ function DocumentSlotCard({
   doc: DocumentBrief | undefined;
   token: string;
   uploading: string | null;
+  canUpload: boolean;
+  canDownload: boolean;
   onUpload: (docType: DocumentTypeValue) => void;
   t: (key: string, params?: Record<string, string | number>) => string;
 }) {
@@ -133,6 +154,34 @@ function DocumentSlotCard({
     : null;
   const busy = uploading === slot.type;
   const uploadedLabel = formatDateTime(doc?.uploaded_at);
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleDownload() {
+    if (!doc || downloading || !canDownload) return;
+    setDownloading(true);
+    try {
+      const blob = await api.getBlob(`/documents/${doc.id}/content?download=true`, token);
+      const cacheDir = FileSystem.cacheDirectory;
+      if (!cacheDir) throw new Error("no-cache");
+      const safeName = (doc.original_filename || `documento-${doc.id}`).replace(
+        /[^\w.\-]+/g,
+        "_",
+      );
+      const path = `${cacheDir}${safeName}`;
+      await FileSystem.writeAsStringAsync(path, arrayBufferToBase64(blob.data), {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      await Share.share(
+        Platform.OS === "ios"
+          ? { url: path, title: doc.original_filename }
+          : { url: path, message: doc.original_filename, title: doc.original_filename },
+      );
+    } catch {
+      Alert.alert(t("common.error"), t("portalDocs.downloadError"));
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <View style={styles.slot}>
@@ -154,24 +203,36 @@ function DocumentSlotCard({
           <Text style={styles.muted}>
             {t("portalDocs.uploadedAt", { date: uploadedLabel })}
           </Text>
+          {canDownload ? (
+            <Button
+              title={downloading ? t("common.loading") : t("common.download")}
+              variant="secondary"
+              fullWidth
+              loading={downloading}
+              disabled={downloading}
+              onPress={() => void handleDownload()}
+            />
+          ) : null}
         </>
       ) : (
         <Text style={styles.muted}>{t("portalDocs.empty")}</Text>
       )}
-      <Button
-        title={
-          busy
-            ? t("common.uploading")
-            : doc
-              ? t("common.replace")
-              : t("common.upload")
-        }
-        variant="secondary"
-        fullWidth
-        loading={busy}
-        disabled={uploading !== null}
-        onPress={() => onUpload(slot.type)}
-      />
+      {canUpload ? (
+        <Button
+          title={
+            busy
+              ? t("common.uploading")
+              : doc
+                ? t("common.replace")
+                : t("common.upload")
+          }
+          variant="secondary"
+          fullWidth
+          loading={busy}
+          disabled={uploading !== null}
+          onPress={() => onUpload(slot.type)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -183,6 +244,8 @@ function SelectableSection({
   documents,
   token,
   uploading,
+  canUpload,
+  canDownload,
   onUpload,
   t,
 }: {
@@ -192,6 +255,8 @@ function SelectableSection({
   documents: DocumentBrief[];
   token: string;
   uploading: string | null;
+  canUpload: boolean;
+  canDownload: boolean;
   onUpload: (docType: DocumentTypeValue) => void;
   t: (key: string) => string;
 }) {
@@ -221,6 +286,8 @@ function SelectableSection({
           doc={latestByType(documents, slot.type)}
           token={token}
           uploading={uploading}
+          canUpload={canUpload}
+          canDownload={canDownload}
           onUpload={onUpload}
           t={t}
         />
@@ -232,6 +299,8 @@ function SelectableSection({
 export function ClientDocumentsPanel({
   clientId,
   token,
+  canUpload = true,
+  canDownload = false,
   initialDocuments = [],
   onDocumentsChange,
 }: ClientDocumentsPanelProps) {
@@ -308,6 +377,7 @@ export function ClientDocumentsPanel({
   );
 
   async function uploadForType(docType: DocumentTypeValue) {
+    if (!canUpload) return;
     setError(null);
     try {
       const picked = await DocumentPicker.getDocumentAsync({
@@ -352,7 +422,9 @@ export function ClientDocumentsPanel({
 
   return (
     <Card title={t("portalDocs.title")}>
-      <Text style={styles.hintText}>{t("portalDocs.subtitle")}</Text>
+      <Text style={styles.hintText}>
+        {t(canUpload ? "portalDocs.subtitle" : "portalDocs.viewOnly")}
+      </Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {hasPending ? (
         <Text style={styles.hint}>{t("portalDocs.verifying")}</Text>
@@ -368,6 +440,8 @@ export function ClientDocumentsPanel({
             doc={latestByType(documents, slot.type)}
             token={token}
             uploading={uploadingType}
+            canUpload={canUpload}
+            canDownload={canDownload}
             onUpload={uploadForType}
             t={t}
           />
@@ -381,6 +455,8 @@ export function ClientDocumentsPanel({
         documents={documents}
         token={token}
         uploading={uploadingType}
+        canUpload={canUpload}
+        canDownload={canDownload}
         onUpload={uploadForType}
         t={t}
       />
@@ -392,6 +468,8 @@ export function ClientDocumentsPanel({
         documents={documents}
         token={token}
         uploading={uploadingType}
+        canUpload={canUpload}
+        canDownload={canDownload}
         onUpload={uploadForType}
         t={t}
       />
