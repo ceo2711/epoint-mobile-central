@@ -23,22 +23,26 @@ Obligatorias para cualquier agente que modifique este repo.
 
 ## Auth y roles
 
-11. No romper SecureStore / refresh / flujo 2FA / `must_change_password`.
-12. Chat flotante **solo** para `CLIENT`. No mostrarlo en staff.
-13. Respetar header `X-Merchant-Id` en staff multi-comercio.
+11. No romper SecureStore / refresh / login 2FA **si la cuenta ya lo tiene** / `must_change_password`.
+12. **No** forzar setup de autenticador en `CLIENT` (`MandatoryTwoFactorModal`). App Store 4.2.3(i). Staff sí sigue obligado en este binario.
+13. Chat flotante **solo** para `CLIENT`. No mostrarlo en staff.
+14. Respetar header `X-Merchant-Id` en staff multi-comercio.
 
 ## Documentos y gestos
 
-14. Tras cerrar `UploadSourceSheet`, esperar dismiss (`waitForModalDismiss`) antes de abrir cámara/picker.
-15. En Kanban, usar `useSuppressBackGesture` para no pelear con el gesto atrás horizontal.
-16. Alternativas de docs: priorizar grupo resuelto (misma lógica que web/backend).
+15. Tras cerrar `UploadSourceSheet`, esperar dismiss (`waitForModalDismiss`) antes de abrir cámara/picker.
+16. En Kanban, usar `useSuppressBackGesture` para no pelear con el gesto atrás horizontal.
+17. Alternativas de docs: priorizar grupo resuelto (misma lógica que web/backend).
 
 ## Env y git
 
-17. `.env` en gitignore. Tras cambiar `EXPO_PUBLIC_*` → `npx expo start -c`.
-18. No hay Heroku: solo `git push origin HEAD` (rama actual, p.ej. `release/1.0.0`).
-19. Commits en español, enfocados en el *porqué*.
+18. `.env` en gitignore. Tras cambiar `EXPO_PUBLIC_*` → `npx expo start -c`.
+19. No hay Heroku: solo `git push origin HEAD` (rama actual). Store 1.0 = `release/1.0.0`. Cursos = `feature/cursos-mentorias`.
+20. Commits en español, enfocados en el *porqué*.
+21. **`ios.supportsTablet: false`**. No volver a `true` sin un layout iPad real; Apple rechazó 2.1(a) por eso.
+22. **No** incluir player/venta de cursos en el binario de App Store 1.0. Apple rechazó 3.1.1 IAP. Esta feature branch no se submitea como 1.0.
+23. Notes de Apple: solo `appreview@epoint.com` / `AppReview123!`. Nunca cuentas con TOTP.
 
 ## Calidad
 
-20. Antes de cerrar cambios TypeScript: `npm run lint` (`tsc --noEmit`).
+24. Antes de cerrar cambios TypeScript: `npm run lint` (`tsc --noEmit`).

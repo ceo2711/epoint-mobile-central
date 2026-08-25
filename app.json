@@ -14,7 +14,7 @@
       "backgroundColor": "#3d6b45"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.epoint.crm",
       "infoPlist": {
         "NSCameraUsageDescription": "Epoint necesita acceso a la cámara para fotografiar documentos.",

@@ -64,10 +64,13 @@ export const en: Messages = {
     roles: "Roles",
     account: "My account",
     home: "Home",
+    courses: "Courses",
+    mentorships: "Mentorships",
     myData: "My data",
     documents: "Documents",
     myBoard: "Board",
     portalAccount: "Account",
+    productLocked: "Not included in your plan. Available when you purchase it.",
   },
   scope: {
     sede: "Branch",
@@ -683,6 +686,8 @@ export const en: Messages = {
     step3Title: "Follow your board",
     step3Desc: "Track your process progress.",
     step3LockedDesc: "Unlocks when your data and documents are completed and verified",
+    coursesSoon: "Video lessons appear here when your advisor publishes them.",
+    mentorshipSoon: "You'll schedule your live mentorship sessions here.",
     step3LockedCta: "Pending",
   },
   portalBoardUnlock: {

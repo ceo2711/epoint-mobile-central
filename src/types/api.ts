@@ -99,6 +99,11 @@ export interface User {
   active_merchant?: MerchantBrief | null;
   can_manage_sub_sellers?: boolean;
   is_sub_seller?: boolean;
+  entitlements?: {
+    credit: boolean;
+    course: boolean;
+    mentorship: boolean;
+  };
 }
 
 export interface Merchant {

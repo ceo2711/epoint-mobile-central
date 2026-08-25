@@ -26,8 +26,11 @@ type TotpSetupResponse = {
 };
 
 /**
- * Modal bloqueante: obliga a configurar 2FA (igual que en web).
- * No se puede usar la app hasta completarlo.
+ * Modal bloqueante de setup 2FA (igual que en web).
+ *
+ * App Store 4.2.3(i): el portal de cliente no puede exigir instalar
+ * Google/Microsoft Authenticator para usar la app. En CLIENT no se muestra.
+ * Staff sí sigue obligado en este binario.
  */
 export function MandatoryTwoFactorModal() {
   const { user, token, refreshUser, logout } = useAuth();
@@ -39,6 +42,7 @@ export function MandatoryTwoFactorModal() {
   const [busy, setBusy] = useState(false);
 
   if (!user || !token || user.totp_enabled) return null;
+  if (user.role.code === "CLIENT") return null;
 
   async function handleStart() {
     setError("");

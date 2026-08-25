@@ -62,10 +62,13 @@ export const es = {
     roles: "Roles",
     account: "Mi cuenta",
     home: "Inicio",
+    courses: "Cursos",
+    mentorships: "Mentorías",
     myData: "Mis datos",
     documents: "Documentos",
     myBoard: "Tablero",
     portalAccount: "Cuenta",
+    productLocked: "No incluido en tu plan. Disponible cuando lo adquieras.",
   },
   scope: {
     sede: "Sede",
@@ -682,6 +685,8 @@ export const es = {
     step3Title: "Seguí tu tablero",
     step3Desc: "Revisá el progreso de tu proceso.",
     step3LockedDesc: "Se habilita al completar y verificar tus datos y documentos",
+    coursesSoon: "Las lecciones en video se publican acá cuando el asesor las cargue.",
+    mentorshipSoon: "Acá vas a agendar tus sesiones de mentoría en vivo.",
     step3LockedCta: "Pendiente",
   },
   portalBoardUnlock: {

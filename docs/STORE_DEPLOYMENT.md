@@ -12,30 +12,48 @@ El `.env` local no afecta builds de store.
 
 ---
 
-## App Store (iOS) — hecho
+## App Store (iOS) — estado ago 2026
+
+Binario en revisión: **1.0.0 (13)**. Rama de store: `release/1.0.0`. **No** reenviar `feature/cursos-mentorias`.
 
 ### Completado
-- [x] Bundle ID `com.epoint.crm` registrado en el team Apple (EPoint Corporation, Team ID `F75PF6CU83`)
-- [x] App creada en App Store Connect: **EPoint Credit** (Apple ID `6796205273`, SKU `epoint-crm-ios-001`)
-- [x] Acceso App Manager/Admin vía invitación de Eberths Perozo
-- [x] App Store Connect API Key (`8UGGW5V239`) para build/submit sin Apple ID personal
-- [x] Distribution Certificate + Provisioning Profile generados con EAS
-- [x] Config store: splash, `ITSAppUsesNonExemptEncryption: false`, sin cleartext HTTP, scripts `build:prod:*` / `submit:ios`
-- [x] Build production iOS `1.0.0` (buildNumber **10**) subido a App Store Connect
-- [x] Metadata: screenshots iPhone + iPad 13", description EN, keywords, support URL `https://epointsolution.com/`
-- [x] App Privacy publicado (datos vinculados, sin tracking)
-- [x] Age rating **4+**, categoría Finance / Business
-- [x] Precio/disponibilidad configurados
-- [x] Review notes + demo: `asesor@epoint.com` / `Asesor123!` (ambiente **dev** en el binario enviado)
-- [x] Envío a revisión (estado al momento del envío: **Pending Review**)
+- [x] Bundle ID `com.epoint.crm` · Team Apple EPoint Corporation `F75PF6CU83`
+- [x] App Store Connect: **EPoint Credit** (Apple ID `6796205273`, SKU `epoint-crm-ios-001`)
+- [x] EAS `@alexisguanique/epoint-crm-mobile` · API Key ASC `8UGGW5V239`
+- [x] iPhone only: `ios.supportsTablet: false` (build 11 falló 2.1(a) en iPad)
+- [x] CLIENT sin modal de Authenticator (build 13; Guideline 4.2.3(i))
+- [x] Demo: `appreview@epoint.com` / `AppReview123!` — backend saltea 2FA y must_change_password
+- [x] Metadata, App Privacy, Age 4+, Finance/Business, support `https://epointsolution.com/`
+
+### Builds (no reusar los viejos)
+| Build | Qué pasó |
+|-------|----------|
+| 10 | API **dev** + icono Expo. Obsoleto. |
+| 11 | API prod + logo. Rechazo **2.1(a)** iPad. |
+| 12 | iPhone only. Rechazo **4.2.3(i)** TOTP. |
+| **13** | iPhone only + sin Authenticator en CLIENT. En review. Luego preguntaron préstamos (no) y **3.1.1 IAP cursos**. Reply: portal only, no IAP; **mismo build 13**. |
+
+### Notes vigentes (no poner otras cuentas)
+```
+EPoint Credit — iOS 1.0.0 (build 13)
+iPhone only. Please review on iPhone, not iPad.
+Client portal only. Production API.
+
+APP REVIEW LOGIN (no 2FA, no extra apps):
+Username: appreview@epoint.com
+Password: AppReview123!
+No 2FA. No forced password change. No authenticator app required.
+```
+
+**Prohibido en Notes:** `guaniquediaz@gmail.com` u otras cuentas con TOTP.
+
+### No meter en el IPA 1.0
+Tabs/player de cursos, copy de “buy course”, IAP. Eso vive en `feature/cursos-mentorias` para 2.0 / web.
 
 ### Notas iOS
-- El binario **1.0.0 (10)** en review se construyó con API **dev** y el **icono placeholder de Expo**.
-- En repo (`release/1.0.0` desde `27e2654`) el icono/splash ya usan el logo ePoint; el perfil `production` apunta a API **prod**.
-- **Próximo paso:** nuevo build iOS production + submit (buildNumber auto-increment, p.ej. 11) para que Apple muestre el logo correcto.
-- Push APNs: pendiente (requiere login Apple ID del titular; se omitió para no bloquear el submit).
-- Reglamento de Servicios Digitales (UE): lo completa el Account Holder (Eberths) si hace falta.
-- Credenciales ASC locales: `secrets/AuthKey_8UGGW5V239.p8` (gitignored) + `eas.json` submit.production.ios.
+- Push APNs: pendiente (login Apple ID del titular).
+- Credenciales ASC locales: `secrets/AuthKey_8UGGW5V239.p8` (gitignored).
+- Script demo CLIENT: `backend/scripts/create_app_review_client.py` (repo backend).
 
 ### Comandos iOS (referencia)
 ```bash
@@ -124,7 +142,7 @@ npm run build:prod:android
 
 ## Orden sugerido al retomar desde otra máquina
 
-1. `git pull` en `epoint-central-mobile` (rama `release/1.0.0`).
-2. Confirmar estado iOS en App Store Connect (aprobada / en review / rechazo).
+1. `git clone` / `git pull` en `epoint-mobile-central`. Para cursos: `git checkout feature/cursos-mentorias`. Para store: `release/1.0.0`.
+2. Confirmar estado iOS en App Store Connect (build **13**). No submitear la rama de cursos como 1.0.
 3. Cuando haya Play Console: `npm run build:prod:android` → Internal testing → listing completo.
-4. Si iOS sigue en dev y ya quieren prod: nuevo build iOS + versión `1.0.1` (el `eas.json` production ya tiene URL prod).
+4. Nuevo IPA store solo si Apple pide otro binario — y **sin** UI de cursos.

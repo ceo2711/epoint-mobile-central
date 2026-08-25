@@ -15,8 +15,15 @@ Esta carpeta viaja con el repositorio. Si clonás solo el mobile en otra PC, el 
 2. El `AGENTS.md` de la raíz apunta acá.
 3. Si falta contexto: *“Leé agent/CONTEXT.md y agent/RULES.md”*.
 
+## Rama de trabajo
+
+- Store iOS 1.0: `release/1.0.0` (build **13** en review). No meter cursos.
+- Cursos/mentorías: `feature/cursos-mentorias` (no submitear como 1.0).
+- Docs store: [`docs/STORE_DEPLOYMENT.md`](../docs/STORE_DEPLOYMENT.md)
+
 ## Repo hermano
 
-- Backend: `epoint-central-backend` (Heroku)
-- Frontend: `epoint-central-frontend` (Heroku)
-- Este mobile: GitHub `epoint-central-mobile` — **sin Heroku** (Expo)
+- Backend: `epoint-backend-central` (Heroku)
+- Frontend: `epoint-frontend-central` (Heroku)
+- Landing: `AlexisGuanique/epoint-credits`
+- Este mobile: GitHub `ceo2711/epoint-mobile-central` — **sin Heroku** (Expo / EAS)

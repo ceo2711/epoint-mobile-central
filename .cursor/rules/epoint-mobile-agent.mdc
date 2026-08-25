@@ -11,6 +11,10 @@ Antes de cambios no triviales, seguí:
 - `agent/CONTEXT.md`
 - `agent/RULES.md`
 
+Store 1.0 = `release/1.0.0` (build 13). Cursos = `feature/cursos-mentorias` — **no** submitear como 1.0 (Apple 3.1.1).
+iPhone only: `supportsTablet: false`. No forzar Authenticator en CLIENT.
+Demo Apple: `appreview@epoint.com` / `AppReview123!` — nunca cuentas con 2FA en Notes.
+
 Docs Expo: https://docs.expo.dev/versions/v54.0.0/
 
 Respuestas al usuario en español salvo que pida otro idioma.

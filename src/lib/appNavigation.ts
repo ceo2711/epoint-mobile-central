@@ -147,6 +147,20 @@ export const clientNav: NavItem[] = [
     primaryTab: true,
   },
   {
+    href: "/(portal)/(tabs)/cursos",
+    webHref: "/portal/cursos",
+    labelKey: "nav.courses",
+    icon: "play-circle-outline",
+    primaryTab: true,
+  },
+  {
+    href: "/(portal)/(tabs)/mentorias",
+    webHref: "/portal/mentorias",
+    labelKey: "nav.mentorships",
+    icon: "calendar-outline",
+    primaryTab: true,
+  },
+  {
     href: "/(portal)/(tabs)/datos",
     webHref: "/portal/datos",
     labelKey: "nav.myData",
@@ -184,10 +198,8 @@ export function getAccessibleNavItems(
   if (!user) return [];
 
   if (user.role.code === "CLIENT") {
-    const unlocked = Boolean(options?.boardUnlocked);
-    return clientNav.filter(
-      (item) => item.href !== "/(portal)/(tabs)/tablero" || unlocked,
-    );
+    void options;
+    return clientNav;
   }
 
   const salesLeader = isSalesAreaLeader(user);
