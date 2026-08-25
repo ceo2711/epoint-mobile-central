@@ -8,6 +8,7 @@ Antes de escribir o modificar código de dominio en este repositorio, leé:
 
 1. [`agent/CONTEXT.md`](./agent/CONTEXT.md) — stack, rutas, features, API
 2. [`agent/RULES.md`](./agent/RULES.md) — reglas obligatorias
+3. [`docs/VERSIONS.md`](./docs/VERSIONS.md) — qué tiene cada versión, revisiones Apple, Google Play
 
 Índice: [`agent/README.md`](./agent/README.md)
 

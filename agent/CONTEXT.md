@@ -12,28 +12,22 @@ Repo git independiente: `https://github.com/ceo2711/epoint-mobile-central.git`
 | `feature/cursos-mentorias` | Cursos/mentorías en portal. Para **web/2.0**, no para el IPA de store 1.0. |
 | `feature/admin-mobile` | Staff/admin. |
 
-**Nunca** enviar `feature/cursos-mentorias` a App Store como versión 1.0: Apple ya rechazó **3.1.1 IAP** porque el binario mencionaba courses.
+**Nunca** enviar `feature/cursos-mentorias` a App Store como versión 1.0: Apple ya rechazó **3.1.1 IAP**.
 
-## App Store (ago 2026) — leer antes de tocar iOS
+Registro completo (qué tiene cada versión, hilo Apple, Play, cursos): [`docs/VERSIONS.md`](../docs/VERSIONS.md).  
+Comandos EAS: [`docs/STORE_DEPLOYMENT.md`](../docs/STORE_DEPLOYMENT.md).
 
-- App Store Connect: **EPoint Credit**, Apple ID `6796205273`, bundle `com.epoint.crm`, Team `F75PF6CU83`.
-- EAS: `@alexisguanique/epoint-crm-mobile` · Expo project `19401c1b-8557-4fb4-8079-8bc5cf916b00`.
-- Demo review: `appreview@epoint.com` / `AppReview123!`. **No** poner `guaniquediaz@gmail.com` (tiene 2FA) en Notes.
-- Binario en review: **1.0.0 build 13**. No generar otro IPA 1.0 salvo rechazo nuevo.
-- `ios.supportsTablet` debe ser **`false`** (iPhone only). Build 11 falló Guideline **2.1(a)** porque Apple revisó en iPad.
-- En este repo (rama cursos): el modal `MandatoryTwoFactorModal` **no** se muestra a `CLIENT` (Guideline **4.2.3(i)**). Staff sí. En **web/backend** el 2FA de clientes reales sigue; solo `appreview@…` está exceptuado.
-- Historial de rechazos reales:
-  - 14 ago — 2.1 info incompleta
-  - 18 ago — 2.1(a) iPad (`supportsTablet: true`)
-  - 20 ago — 4.2.3(i) TOTP / Authenticator
-  - 22 ago — 2.1 ¿préstamos? (no: es onboarding de crédito, no lending)
-  - 24 ago — **3.1.1 IAP cursos** → reply: portal only, no se vende nada en la app; mismo build 13 + Actualizar revisión
-- Reply vigente: no IAP, no subscriptions, no self-registration; el portal es datos/docs/tablero. Cursos se venden en la **landing + CRM web**, no en este IPA.
-- Detalle operativo: `docs/STORE_DEPLOYMENT.md`.
+## Versiones (resumen — el detalle está en VERSIONS.md)
+
+- **Store 1.0.0** = rama `release/1.0.0` + IPA **build 13** (portal cliente, iPhone only, sin Authenticator en CLIENT). En review.
+- **Ciclo 2** = rama `release/2.0.0` (staff/admin). No hay IPA 2.0.
+- **Esta rama** = cursos/mentorías + esos fixes de review. No submitear como 1.0.
+- Demo Apple: `appreview@epoint.com` / `AppReview123!`. Nunca `guaniquediaz@gmail.com` en Notes.
+- `release/1.0.0` en git **no** tiene todavía `supportsTablet: false` ni el skip 2FA CLIENT; el IPA 13 sí. Otro IPA 1.0 = cherry-pick esos dos, **sin** tabs de cursos.
 
 ## Estado cursos en esta rama
 
-Tabs portal `cursos.tsx` / `mentorias.tsx` + entitlements en `User`. Es UI de **2.0**. Mentoría Calendly pendiente. No hay IAP nativo.
+Tabs `cursos.tsx` (player 12×36 + WebView) y `mentorias.tsx` (placeholder Calendly). Entitlements en `User`. Mentoría live **pendiente**. No hay IAP nativo. Staff carga videos en **web**.
 
 ## Stack
 

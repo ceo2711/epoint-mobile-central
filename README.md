@@ -142,7 +142,8 @@ mobile/
 
 ## Store builds (App Store / Google Play)
 
-Estado detallado (qué ya se hizo en App Store y qué falta en Google Play): [`docs/STORE_DEPLOYMENT.md`](docs/STORE_DEPLOYMENT.md).
+Registro de versiones (1.0 / 2.0 / cursos, revisiones Apple, qué falta en Play): [`docs/VERSIONS.md`](docs/VERSIONS.md).  
+Comandos EAS y secrets: [`docs/STORE_DEPLOYMENT.md`](docs/STORE_DEPLOYMENT.md).
 
 Los perfiles EAS embeben la API según el entorno:
 

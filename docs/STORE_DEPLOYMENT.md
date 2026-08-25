@@ -1,5 +1,7 @@
 # Despliegue en stores — EPoint Credit (mobile)
 
+**Qué tiene cada versión, hilo de Apple y checklist Play:** [`VERSIONS.md`](./VERSIONS.md). Este archivo es la operativa (EAS, comandos, secrets).
+
 App Expo (`com.epoint.crm`) · proyecto EAS `@alexisguanique/epoint-crm-mobile`  
 Perfil de build store: `production` en [`eas.json`](../eas.json)
 

@@ -46,3 +46,4 @@ Obligatorias para cualquier agente que modifique este repo.
 ## Calidad
 
 24. Antes de cerrar cambios TypeScript: `npm run lint` (`tsc --noEmit`).
+25. Si cambia el alcance de una versión de store, un build/submit, o un rechazo de Apple/Play, actualizá [`docs/VERSIONS.md`](../docs/VERSIONS.md) en el mismo commit.
