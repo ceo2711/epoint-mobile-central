@@ -141,11 +141,15 @@ Reply: no. Portal de onboarding (datos, documentos, tablero). Educación/asesor�
 
 Dispositivo otra vez **iPad Air 11"**. Texto de Apple: la app accede a contenido digital pago (cursos) comprado **fuera** de la app, y ese contenido no se vende con IAP.
 
-El 13 **no** tiene tabs de cursos. Apple lo relacionó por marca / web / copy. **No implementar IAP** para publicar el 1.0.
+El 13 **no** tiene tabs de cursos (el código de cursos es del 25 ago, en `feature/cursos-mentorias`). **No** se mandó esa rama. **No implementar IAP** para publicar el 1.0.
 
-Reply vigente (idea): *This iOS 1.0 is the client portal only (Home, Datos, Documentos, Tablero, Cuenta). Nothing is sold in the app. No IAP, no subscriptions, no courses player. Paid education is on the website/CRM, not this binary.* Mismo build **13** + Actualizar revisión.
+#### 6. 26 ago — **mismo** 3.1.1, **mismo** build **13**, **mismo** Submission ID `d13dde36-…`
 
-**Regla:** mientras 1.0 no esté Approved, no meter player/venta de cursos en el IPA.
+No es un IPA nuevo ni cursos colados. Apple insiste porque Support/Privacy de la ficha apuntan a **`https://epointsolution.com/`**, cuya home vende education platform, módulos y mentorship. Review entra ahí y aplica 3.1.1 aunque el binario sea solo portal.
+
+**Qué hacer:** cambiar Support URL y Privacy Policy URL a una página que **solo** describa el portal de crédito. No usar epointsolution.com ni epointcredits.com. Reply: servicio profesional persona a persona (3.1.3(e)); este binario no desbloquea cursos. Mismo **13** + Actualizar revisión **después** de cambiar las URLs.
+
+**Regla:** mientras 1.0 no esté Approved, no meter player/venta de cursos en el IPA ni linkear sitios que vendan cursos.
 
 ### Demo y Notes (copiar tal cual)
 
@@ -176,7 +180,7 @@ This app does not originate or request loans.
 
 - Categoría Finance / Business · Age **4+**
 - App Privacy publicado (datos vinculados, sin tracking)
-- Support / Privacy: `https://epointsolution.com/`
+- Support / Privacy: **hay que cambiarlas**. `https://epointsolution.com/` es la home de programas educativos y disparó 3.1.1 (26 ago).
 - Screenshots iPhone. **Sin** capturas iPad.
 - Precio: gratis. Sin IAP en la ficha.
 
