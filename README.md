@@ -142,8 +142,9 @@ mobile/
 
 ## Store builds (App Store / Google Play)
 
-Registro de versiones (1.0 / 2.0 / cursos, revisiones Apple, qué falta en Play): [`docs/VERSIONS.md`](docs/VERSIONS.md).  
-Comandos EAS y secrets: [`docs/STORE_DEPLOYMENT.md`](docs/STORE_DEPLOYMENT.md).
+Registro de versiones: [`docs/VERSIONS.md`](docs/VERSIONS.md).  
+Hilo Apple (toma y dame): [`docs/APP_REVIEW.md`](docs/APP_REVIEW.md).  
+Comandos EAS: [`docs/STORE_DEPLOYMENT.md`](docs/STORE_DEPLOYMENT.md).
 
 Los perfiles EAS embeben la API según el entorno:
 

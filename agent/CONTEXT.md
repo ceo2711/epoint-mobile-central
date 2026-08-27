@@ -14,8 +14,16 @@ Repo git independiente: `https://github.com/ceo2711/epoint-mobile-central.git`
 
 **Nunca** enviar `feature/cursos-mentorias` a App Store como versión 1.0: Apple ya rechazó **3.1.1 IAP**.
 
-Registro completo (qué tiene cada versión, hilo Apple, Play, cursos): [`docs/VERSIONS.md`](../docs/VERSIONS.md).  
+Registro completo (versiones, Play, cursos): [`docs/VERSIONS.md`](../docs/VERSIONS.md).  
+**Toma y dame con Apple (hilo, replies, próximo texto):** [`docs/APP_REVIEW.md`](../docs/APP_REVIEW.md).  
 Comandos EAS: [`docs/STORE_DEPLOYMENT.md`](../docs/STORE_DEPLOYMENT.md).
+
+## App Review (resumen — el hilo entero está en APP_REVIEW.md)
+
+- Binario en review: **1.0 (13)**. Submission ID `d13dde36-a0cf-4da8-8824-7378f5e0717e`. Rama store: `release/1.0.0`.
+- 26 ago: Apple **insistió 3.1.1**. No se colaron cursos en el IPA (cursos en git = 25 ago). Causa: Support URL `epointsolution.com` vende programas educativos.
+- **No** decirles que los cursos se ven en la web. Eso confirma 3.1.1. Reply listo en `docs/APP_REVIEW.md`.
+- Reply sin **Actualizar revisión** no vuelve a la cola. Mismo build 13. Nunca `feature/cursos-mentorias`.
 
 ## Versiones (resumen — el detalle está en VERSIONS.md)
 

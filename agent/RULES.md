@@ -42,8 +42,9 @@ Obligatorias para cualquier agente que modifique este repo.
 21. **`ios.supportsTablet: false`**. No volver a `true` sin un layout iPad real; Apple rechazó 2.1(a) por eso.
 22. **No** incluir player/venta de cursos en el binario de App Store 1.0. Apple rechazó 3.1.1 IAP. Esta feature branch no se submitea como 1.0.
 23. Notes de Apple: solo `appreview@epoint.com` / `AppReview123!`. Nunca cuentas con TOTP.
+24. Replies a App Review: seguí [`docs/APP_REVIEW.md`](../docs/APP_REVIEW.md). **No** decir que los cursos están en la web (eso es 3.1.1). Un Reply exige **Actualizar revisión** con el **mismo build 13**.
 
 ## Calidad
 
-24. Antes de cerrar cambios TypeScript: `npm run lint` (`tsc --noEmit`).
-25. Si cambia el alcance de una versión de store, un build/submit, o un rechazo de Apple/Play, actualizá [`docs/VERSIONS.md`](../docs/VERSIONS.md) en el mismo commit.
+25. Antes de cerrar cambios TypeScript: `npm run lint` (`tsc --noEmit`).
+26. Si cambia el alcance de una versión de store, un build/submit, o un rechazo de Apple/Play, actualizá [`docs/VERSIONS.md`](../docs/VERSIONS.md) y el hilo en [`docs/APP_REVIEW.md`](../docs/APP_REVIEW.md) en el mismo commit.

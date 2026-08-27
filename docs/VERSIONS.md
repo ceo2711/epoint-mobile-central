@@ -2,7 +2,8 @@
 
 Fuente de verdad para **qué tiene cada versión**, **qué se mandó a Apple**, **qué falta en Google Play** y **qué se está agregando ahora**. Si cambiás un binario de store o el alcance de una rama, actualizá este archivo en el mismo commit.
 
-Operativa de EAS / comandos: [`STORE_DEPLOYMENT.md`](./STORE_DEPLOYMENT.md).
+Operativa de EAS / comandos: [`STORE_DEPLOYMENT.md`](./STORE_DEPLOYMENT.md).  
+**Toma y dame con Apple (mensajes, replies, próximo texto):** [`APP_REVIEW.md`](./APP_REVIEW.md).
 
 ---
 
@@ -34,7 +35,7 @@ El `.env` local **no** entra en esos builds.
 
 | Store / producto | Rama git | Binario | Apple | Google Play |
 |------------------|----------|---------|-------|-------------|
-| **1.0.0 portal cliente** | `release/1.0.0` | iOS **1.0.0 (13)** | En revisión (último hilo: 3.1.1 IAP, mismo 13) | **No empezó** (sin Play Console) |
+| **1.0.0 portal cliente** | `release/1.0.0` | iOS **1.0.0 (13)** | 26 ago: insistieron **3.1.1**. Ver [`APP_REVIEW.md`](./APP_REVIEW.md) | **No empezó** (sin Play Console) |
 | Ciclo 2 staff/admin | `release/2.0.0` | Ninguno de store | No enviar | No enviar |
 | Cursos / mentorías | `feature/cursos-mentorias` | Ninguno de store | **Prohibido** como 1.0 (Apple 3.1.1) | Igual: no mandar player de cursos en el primer AAB |
 
@@ -362,4 +363,4 @@ En el **mismo commit** que:
 - un recorte o alta de features en una versión de marketing,
 - el merge de `feature/cursos-mentorias` a una release,
 
-agregá fila de build, fecha, guideline y “qué tiene / qué no”. No dejes el hilo solo en el chat de Cursor.
+agregá fila de build, fecha, guideline y “qué tiene / qué no”, y copiá el mensaje de Apple + nuestro reply en [`APP_REVIEW.md`](./APP_REVIEW.md). No dejes el hilo solo en el chat de Cursor.

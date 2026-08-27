@@ -10,9 +10,11 @@ Este workspace es la app mobile de ePoint CRM (Expo SDK 54).
 Antes de cambios no triviales, seguí:
 - `agent/CONTEXT.md`
 - `agent/RULES.md`
+- `docs/APP_REVIEW.md` (hilo Apple: qué responder y qué no decir)
+- `docs/VERSIONS.md`
 
-Registro de versiones / Apple / Play: `docs/VERSIONS.md`.
 Store 1.0 = `release/1.0.0` (build 13). Cursos = `feature/cursos-mentorias` — **no** submitear como 1.0 (Apple 3.1.1).
+**No** decirle a Apple que los cursos se ven en la web. Reply listo en `docs/APP_REVIEW.md`.
 iPhone only: `supportsTablet: false`. No forzar Authenticator en CLIENT.
 Demo Apple: `appreview@epoint.com` / `AppReview123!` — nunca cuentas con 2FA en Notes.
 
