@@ -134,7 +134,7 @@ export const en: Messages = {
     loading: "Loading your portal…",
     loadError: "Could not load your portal",
     step1Title: "Complete your data",
-    step1Desc: "SSN, date of birth, address, and vehicle.",
+    step1Desc: "SSN, date of birth, address, and vehicle (optional).",
     step2Title: "Upload your documents",
     step2Desc: "License, SSN, and proofs for verification.",
     step3Title: "Follow your board",
@@ -153,7 +153,7 @@ export const en: Messages = {
   },
   portalData: {
     title: "My data",
-    subtitle: "Complete your personal information, address, and main vehicle.",
+    subtitle: "Complete your personal information and address. Vehicle data is optional.",
     loading: "Loading your data…",
     loadError: "Could not load your data",
     saveError: "Could not save your data",
@@ -172,6 +172,7 @@ export const en: Messages = {
     monthSince: "Month since (1-12)",
     yearSince: "Year since",
     mainVehicle: "Main vehicle",
+    vehicleOptionalHint: "Optional. You can leave it empty and continue; onboarding can add it later.",
     model: "Model",
     year: "Year",
     color: "Color",
@@ -185,7 +186,7 @@ export const en: Messages = {
   portalDocs: {
     title: "Documents",
     subtitle:
-      "SSN is required. For identity and address proof, choose one of the available options.",
+      "SSN is required. Photograph the document centered on a flat surface, with no hands or fingers. For identity and address proof, choose one of the available options.",
     loading: "Loading documents…",
     loadError: "Could not load documents",
     uploadSuccess: "Document uploaded successfully",

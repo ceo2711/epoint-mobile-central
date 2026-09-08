@@ -132,7 +132,7 @@ export const es = {
     loading: "Cargando tu portal…",
     loadError: "No se pudo cargar tu portal",
     step1Title: "Completá tus datos",
-    step1Desc: "SSN, fecha de nacimiento, domicilio y vehículo.",
+    step1Desc: "SSN, fecha de nacimiento, domicilio y vehículo (opcional).",
     step2Title: "Subí tus documentos",
     step2Desc: "Licencia, SSN y comprobantes para verificación.",
     step3Title: "Seguí tu tablero",
@@ -151,7 +151,7 @@ export const es = {
   },
   portalData: {
     title: "Mis datos",
-    subtitle: "Completá tu información personal, domicilio y vehículo principal.",
+    subtitle: "Completá tu información personal y domicilio. El vehículo es opcional.",
     loading: "Cargando tus datos…",
     loadError: "No se pudieron cargar tus datos",
     saveError: "No se pudieron guardar los datos",
@@ -170,6 +170,7 @@ export const es = {
     monthSince: "Mes desde (1-12)",
     yearSince: "Año desde",
     mainVehicle: "Vehículo principal",
+    vehicleOptionalHint: "Opcional. Podés dejarlo vacío y continuar; onboarding puede completarlo después.",
     model: "Modelo",
     year: "Año",
     color: "Color",
@@ -183,7 +184,7 @@ export const es = {
   portalDocs: {
     title: "Documentos",
     subtitle:
-      "El SSN es obligatorio. Para identidad y domicilio elegí una de las opciones disponibles.",
+      "El SSN es obligatorio. Fotografiá el documento centrado, sobre una superficie plana, sin manos ni dedos. Para identidad y domicilio elegí una de las opciones disponibles.",
     loading: "Cargando documentos…",
     loadError: "No se pudieron cargar los documentos",
     uploadSuccess: "Documento subido correctamente",

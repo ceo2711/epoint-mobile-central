@@ -38,6 +38,10 @@ function currentYear() {
   return new Date().getFullYear();
 }
 
+function vehicleHasAnyValue(v: { model: string; year: string; color: string }) {
+  return Boolean(v.model.trim() || v.year.trim() || v.color.trim());
+}
+
 export default function PortalDatosScreen() {
   const { token, isLoading: authLoading } = useAuth();
   const unlockCtx = usePortalBoardUnlock();
@@ -139,19 +143,21 @@ export default function PortalDatosScreen() {
     if (!addr.city.trim()) next.city = t("common.required");
     if (!addr.state.trim()) next.state = t("common.required");
     if (!addr.zip_code.trim()) next.zip = t("common.required");
-    if (!vehicle.model.trim()) next.model = t("common.required");
-    if (!vehicle.color.trim()) next.color = t("common.required");
-    const vehicleYear = parseRequiredInt(vehicle.year);
-    const maxYear = currentYear();
-    if (!vehicle.year.trim()) {
-      next.vehicleYear = t("common.required");
-    } else if (
-      Number.isNaN(vehicleYear) ||
-      vehicleYear === null ||
-      vehicleYear < 1900 ||
-      vehicleYear > maxYear
-    ) {
-      next.vehicleYear = t("portalData.vehicleYearInvalid", { year: maxYear });
+    if (vehicleHasAnyValue(vehicle)) {
+      if (!vehicle.model.trim()) next.model = t("common.required");
+      if (!vehicle.color.trim()) next.color = t("common.required");
+      const vehicleYear = parseRequiredInt(vehicle.year);
+      const maxYear = currentYear();
+      if (!vehicle.year.trim()) {
+        next.vehicleYear = t("common.required");
+      } else if (
+        Number.isNaN(vehicleYear) ||
+        vehicleYear === null ||
+        vehicleYear < 1900 ||
+        vehicleYear > maxYear
+      ) {
+        next.vehicleYear = t("portalData.vehicleYearInvalid", { year: maxYear });
+      }
     }
     setFieldErrors(next);
     return Object.keys(next).length === 0;
@@ -163,8 +169,9 @@ export default function PortalDatosScreen() {
     setError("");
     if (!validate()) return;
 
+    const fillingVehicle = vehicleHasAnyValue(vehicle);
     const year = parseRequiredInt(vehicle.year);
-    if (year === null || Number.isNaN(year)) return;
+    if (fillingVehicle && (year === null || Number.isNaN(year))) return;
 
     const profilePayload: { ssn?: string; date_of_birth?: string } = {};
     if (ssn.trim()) profilePayload.ssn = ssn.trim();
@@ -188,16 +195,18 @@ export default function PortalDatosScreen() {
         },
         token,
       );
-      await api.post(
-        "/portal/vehicles",
-        {
-          order: 1,
-          model: vehicle.model.trim(),
-          year,
-          color: vehicle.color.trim(),
-        },
-        token,
-      );
+      if (fillingVehicle && year !== null) {
+        await api.post(
+          "/portal/vehicles",
+          {
+            order: 1,
+            model: vehicle.model.trim(),
+            year,
+            color: vehicle.color.trim(),
+          },
+          token,
+        );
+      }
       const updated = await api.get<Client>("/portal/me", token);
       setClient(updated);
       setSsn("");
@@ -312,6 +321,7 @@ export default function PortalDatosScreen() {
         </Section>
 
         <Section title={t("portalData.mainVehicle")}>
+          <Text style={styles.subtitle}>{t("portalData.vehicleOptionalHint")}</Text>
           <Input
             label={t("portalData.model")}
             value={vehicle.model}
